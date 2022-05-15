@@ -3,6 +3,7 @@ package memory
 import (
 	"github.com/whuanle/lsm/kv"
 	"log"
+	"sync"
 )
 
 // sortTreeNode 有序树节点
@@ -14,10 +15,12 @@ type sortTreeNode struct {
 
 // SortTree 有序树
 type SortTree struct {
-	root  *sortTreeNode
-	count int
+	root   *sortTreeNode
+	count  int
+	RWLock sync.RWMutex
 }
 
+// GetCount 获取元素数量
 func (tree *SortTree) GetCount() int {
 	return tree.count
 }
@@ -25,8 +28,10 @@ func (tree *SortTree) GetCount() int {
 // Search 查找 Key 的值
 func (tree *SortTree) Search(key string) (kv.Value, bool) {
 	if tree == nil {
-		log.Fatal("树为空")
+		log.Fatal("The tree is nil")
 	}
+	tree.RWLock.RLock()
+	defer tree.RWLock.RUnlock()
 	current := tree.root
 	// 层次遍历
 	for current != nil {
@@ -48,7 +53,7 @@ func (tree *SortTree) Search(key string) (kv.Value, bool) {
 // Insert 插入元素
 func (tree *SortTree) Insert(key string, value []byte) bool {
 	if tree == nil {
-		log.Fatal()
+		log.Fatal("The tree is nil")
 	}
 
 	newNode := &sortTreeNode{
@@ -57,6 +62,8 @@ func (tree *SortTree) Insert(key string, value []byte) bool {
 			Value: value,
 		},
 	}
+	tree.RWLock.Lock()
+	defer tree.RWLock.Unlock()
 
 	if tree.root == nil {
 		tree.root = newNode
@@ -100,9 +107,10 @@ func (tree *SortTree) Insert(key string, value []byte) bool {
 // Delete 删除并返回旧值
 func (tree *SortTree) Delete(key string) (kv.Value, bool) {
 	if tree == nil {
-		log.Fatal()
+		log.Fatal("The tree is nil")
 	}
-
+	tree.RWLock.Lock()
+	defer tree.RWLock.Unlock()
 	newNode := &sortTreeNode{
 		KV: kv.Value{
 			Key:     key,
@@ -147,6 +155,10 @@ func (tree *SortTree) GetValues() []kv.Value {
 		length: tree.count,
 	}
 	values := make([]kv.Value, 0)
+
+	tree.RWLock.RLock()
+	defer tree.RWLock.RUnlock()
+	
 	// 使用栈非递归遍历树
 	node := tree.root
 	for node != nil {
