@@ -6,9 +6,9 @@ import (
 
 func Test_SortTree_Insert(t *testing.T) {
 	tree := &SortTree{}
-	result := tree.Insert("a", []byte{1, 2, 3})
-	if !result {
-		t.Error(result)
+	_, hasOld := tree.Set("a", []byte{1, 2, 3})
+	if hasOld == true {
+		t.Error(hasOld)
 	}
 
 	count := tree.GetCount()
@@ -16,8 +16,8 @@ func Test_SortTree_Insert(t *testing.T) {
 		t.Error(count)
 	}
 
-	tree.Insert("b", []byte{1, 2, 3})
-	tree.Insert("c", []byte{1, 2, 3})
+	tree.Set("b", []byte{1, 2, 3})
+	tree.Set("c", []byte{1, 2, 3})
 
 	count = tree.GetCount()
 	if count != 3 {
@@ -41,7 +41,7 @@ func Test_SortTree_Insert(t *testing.T) {
 		t.Error(success)
 	}
 
-	if data[0] != 1 {
+	if data.Value[0] != 1 {
 		t.Error(data)
 	}
 }

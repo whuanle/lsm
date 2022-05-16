@@ -17,68 +17,85 @@ type sortTreeNode struct {
 type SortTree struct {
 	root   *sortTreeNode
 	count  int
-	RWLock sync.RWMutex
+	rWLock *sync.RWMutex
 }
 
-// GetCount 获取元素数量
+func (tree *SortTree) Init() {
+	tree.rWLock = &sync.RWMutex{}
+}
+
+// GetCount 获取内存表元素数量
 func (tree *SortTree) GetCount() int {
 	return tree.count
 }
 
-// Search 查找 Key 的值
-func (tree *SortTree) Search(key string) (kv.Value, bool) {
+// Search 查找 Key 的值，
+// kv.Value 的 Deleted 一定为 false
+func (tree *SortTree) Search(key string) (kv.Value, kv.SearchResult) {
 	if tree == nil {
 		log.Fatal("The tree is nil")
 	}
-	tree.RWLock.RLock()
-	defer tree.RWLock.RUnlock()
-	current := tree.root
-	// 层次遍历
-	for current != nil {
-		if key == current.KV.Key && current.KV.Deleted == false {
-			return current.KV, true
-		}
 
-		if key < current.KV.Key {
+	tree.rWLock.RLock()
+	defer tree.rWLock.RUnlock()
+
+	currentNode := tree.root
+	// 层次遍历
+	for currentNode != nil {
+		if key == currentNode.KV.Key {
+			if currentNode.KV.Deleted == false {
+				return currentNode.KV, kv.Success
+			} else {
+				return kv.Value{}, kv.Deleted
+			}
+		}
+		if key < currentNode.KV.Key {
 			// 继续对比下一层
-			current = current.Left
+			currentNode = currentNode.Left
 		} else {
 			// 继续对比下一层
-			current = current.Right
+			currentNode = currentNode.Right
 		}
 	}
-	return kv.Value{}, false
+	return kv.Value{}, kv.None
 }
 
-// Insert 插入元素
-func (tree *SortTree) Insert(key string, value []byte) bool {
+// Set 设置 Key 的值并返回旧值，
+// 返回的 bool 只表示是否有旧值
+func (tree *SortTree) Set(key string, value []byte) (oldValue kv.Value, hasOld bool) {
 	if tree == nil {
 		log.Fatal("The tree is nil")
 	}
 
+	current := tree.root
 	newNode := &sortTreeNode{
 		KV: kv.Value{
 			Key:   key,
 			Value: value,
 		},
 	}
-	tree.RWLock.Lock()
-	defer tree.RWLock.Unlock()
 
-	if tree.root == nil {
+	tree.rWLock.Lock()
+	defer tree.rWLock.Unlock()
+
+	if current == nil {
 		tree.root = newNode
 		tree.count++
-		return true
+		return kv.Value{}, false
 	}
-
-	current := tree.root
 
 	for current != nil {
 		// 如果已经存在键，则替换值
 		if key == current.KV.Key {
 			current.KV.Value = value
+			isDeleted := current.KV.Deleted
 			current.KV.Deleted = false
-			return true
+			// 返回旧值
+			if isDeleted {
+				return kv.Value{}, false
+			} else {
+				return current.KV, true
+			}
 		}
 		// 要插入左边
 		if key < current.KV.Key {
@@ -86,31 +103,34 @@ func (tree *SortTree) Insert(key string, value []byte) bool {
 			if current.Left == nil {
 				current.Left = newNode
 				tree.count++
-				return true
+				return kv.Value{}, false
 			}
 			// 继续对比下一层
 			current = current.Left
 		} else {
+			// 右孩为空，直接插入右边
 			if current.Right == nil {
 				current.Right = newNode
 				tree.count++
-				return true
+				return kv.Value{}, false
 			}
 			// 继续对比下一层
 			current = current.Right
 		}
 	}
 	tree.count++
-	return true
+	return kv.Value{}, false
 }
 
-// Delete 删除并返回旧值
-func (tree *SortTree) Delete(key string) (kv.Value, bool) {
+// Delete 删除并返回旧值，
+// 返回的 bool 只表示是否有旧值
+func (tree *SortTree) Delete(key string) (oldValue kv.Value, hasOld bool) {
 	if tree == nil {
 		log.Fatal("The tree is nil")
 	}
-	tree.RWLock.Lock()
-	defer tree.RWLock.Unlock()
+
+	tree.rWLock.Lock()
+	defer tree.rWLock.Unlock()
 	newNode := &sortTreeNode{
 		KV: kv.Value{
 			Key:     key,
@@ -122,22 +142,25 @@ func (tree *SortTree) Delete(key string) (kv.Value, bool) {
 	current := tree.root
 	for current != nil {
 		if key == current.KV.Key {
+			// 存在且未被删除
 			if current.KV.Deleted == false {
+				current.KV.Deleted = true
 				tree.count--
+				return current.KV, true
+			} else { // 已被删除过
+				return kv.Value{}, false
 			}
-			current.KV.Deleted = true
-			return current.KV, true
 		}
-		// 如果不存在此 key，则插入一个删除标记，因为此 key 可能在 SsTable 中
+		// 往下一层查找
 		if key < current.KV.Key {
-			// 继续对比下一层
-			// 左孩为空，直接插入左边
+			// 如果不存在此 key，则插入一个删除标记
 			if current.Left == nil {
 				current.Left = newNode
 			}
 			// 继续对比下一层
 			current = current.Left
 		} else {
+			// 如果不存在此 key，则插入一个删除标记
 			if current.Right == nil {
 				current.Right = newNode
 			}
@@ -148,30 +171,28 @@ func (tree *SortTree) Delete(key string) (kv.Value, bool) {
 	return kv.Value{}, false
 }
 
-// GetValues 获取有序元素列表
+// GetValues 获取树中的所有元素，这是一个有序元素列表
 func (tree *SortTree) GetValues() []kv.Value {
-	stack := &Stack{
-		stack:  make([]*sortTreeNode, tree.count),
-		length: tree.count,
-	}
+	// 使用栈，而非递归
+	stack := InitStack(tree.count / 2)
 	values := make([]kv.Value, 0)
 
-	tree.RWLock.RLock()
-	defer tree.RWLock.RUnlock()
-	
+	tree.rWLock.RLock()
+	defer tree.rWLock.RUnlock()
+
 	// 使用栈非递归遍历树
-	node := tree.root
-	for node != nil {
-		if node != nil {
-			values = append(values, node.KV)
-			stack.Push(node)
-			node = node.Left
+	currentNode := tree.root
+	for {
+		if currentNode != nil {
+			stack.Push(currentNode)
+			currentNode = currentNode.Left
 		} else {
-			node, success := stack.Pop()
+			popNode, success := stack.Pop()
 			if success == false {
 				break
 			}
-			node = node.Right
+			values = append(values, popNode.KV)
+			currentNode = popNode.Right
 		}
 	}
 	return values

@@ -1,55 +1,31 @@
-package sstable
+package ssTable
 
 import (
 	"encoding/json"
 	"fmt"
 	"github.com/whuanle/lsm/config"
 	"github.com/whuanle/lsm/kv"
-	"github.com/whuanle/lsm/memory"
 	"log"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 )
-
-/*
-负责管理所有 SsTable，判断是否需要合并文件到下一层
-*/
-
-// 链表，表示每一层的 SsTable
-type tableNode struct {
-	index int
-	table *SsTable
-	next  *tableNode
-}
-
-// TableTree 树
-type TableTree struct {
-	levels []*tableNode
-	length int
-	lock   sync.RWMutex
-}
 
 // Init 初始化 TableTree
 func Init(n int) *TableTree {
 	return &TableTree{
 		levels: make([]*tableNode, n),
-		length: n,
 	}
 }
 
-// 后面使用队列做查询队列，不使用锁
-
 // Search 从所有 SsTable 表中查找数据
 func (tree *TableTree) Search(key string) (kv.Value, bool) {
-	tree.lock.Lock()
-	defer tree.lock.Unlock()
-	for _, v := range tree.levels {
-		node := v
+	tree.lock.RLock()
+	defer tree.lock.RUnlock()
+	// 查找的时候要从最后一个 SsTable 开始查找
+	for _, node := range tree.levels {
 		for node != nil {
-			data, success := node.table.Query(key)
+			data, success := node.table.Search(key)
 			if success {
 				// 如果已经被删除，则不需要再向下查找
 				if data.Deleted == false {
@@ -65,7 +41,9 @@ func (tree *TableTree) Search(key string) (kv.Value, bool) {
 
 // 获取一层中的 SsTable 的最大序号
 func (tree *TableTree) getMaxIndex(level int) int {
-	node := tree.levels[0]
+	tree.lock.RLock()
+	defer tree.lock.RUnlock()
+	node := tree.levels[level]
 	for node != nil {
 		if node.next == nil {
 			return node.index
@@ -74,8 +52,12 @@ func (tree *TableTree) getMaxIndex(level int) int {
 	}
 	return 0
 }
+
+// 获取该层有多少个 SsTable
 func (tree *TableTree) getCount(level int) int {
-	node := tree.levels[0]
+	tree.lock.RLock()
+	defer tree.lock.RUnlock()
+	node := tree.levels[level]
 	count := 0
 	for node != nil {
 		count++
@@ -162,93 +144,6 @@ func (tree *TableTree) insert(table *SsTable, level int) {
 			}
 		}
 	}
-}
-
-// 压缩文件
-func (tree *TableTree) majorCompaction() {
-	tree.lock.Lock()
-	defer tree.lock.Unlock()
-	con := config.GetConfig()
-	for k, v := range tree.levels {
-		// 当前层 SsTable 数量是否已经到达阈值
-		if tree.getCount(k) > con.PartSize {
-			tree.majorCompactionLevel(k)
-			continue
-		}
-		// 当前层的 SsTable 总大小已经到底阈值
-		var size int64
-		node := v
-		for node != nil {
-			size += node.table.GetDbSize()
-		}
-		tableSize := int(size / 1000 / 1000)
-		if tableSize > levelMaxSize[k] {
-			tree.majorCompactionLevel(k)
-			continue
-		}
-	}
-}
-
-// 压缩当前层的文件到下一层
-func (tree *TableTree) majorCompactionLevel(level int) {
-	// 用于加载 SsTable 的内存缓
-	currentCache := make([]byte, levelMaxSize[level])
-	node := tree.levels[level]
-	sortTree := memory.SortTree{}
-
-	for node != nil {
-		table := node.table
-		// 将 SsTable 的数据区加载到 currentCache 内存中
-		length := table.tableMetaInfo.dataLen
-		data := currentCache[0:length]
-		table.readDataArea(data)
-		// 读取每一个元素
-		for k, v := range table.sparseIndex {
-			if v.Deleted == false {
-				sortTree.Insert(k, data[v.Start:(v.Start+v.Len)])
-			} else {
-				sortTree.Delete(k)
-			}
-		}
-		node = node.next
-	}
-
-	// 将 SortTree 压缩合并成一个 SsTable
-	// key 有序的元素集合
-	values := sortTree.GetValues()
-	newLevel := level
-	// 目前最多支持 10 层
-	if newLevel > 10 {
-		newLevel = 10
-	}
-	// 保存到下一层
-	tree.Save(values, newLevel)
-	// 清理该层的文件
-	oldTable := tree.levels[level]
-	tree.levels[level] = nil
-	for oldTable != nil {
-		oldTable.table.Clear()
-		oldTable.table = nil
-		oldTable = oldTable.next
-	}
-}
-
-// LoadDbFile 加载一个 db 文件
-func (tree *TableTree) LoadDbFile(path string) {
-	defer func() {
-		if r := recover(); r != nil {
-			log.Println(r)
-		}
-	}()
-	level, index := getLevel(filepath.Base(path))
-	table := &SsTable{
-		filePath: path,
-	}
-	node := &tableNode{
-		index: index,
-		table: table,
-	}
-	tree.insertNode(node, level)
 }
 
 func (tree *TableTree) insertNode(newNode *tableNode, level int) {

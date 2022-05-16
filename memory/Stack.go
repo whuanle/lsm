@@ -2,33 +2,42 @@ package memory
 
 // Stack 顺序栈
 type Stack struct {
-	stack  []*sortTreeNode
-	length int
-	base   int // 栈底索引
-	top    int //  栈顶索引
+	Stack  []*sortTreeNode
+	Length int
+	Base   int // 栈底索引
+	Top    int //  栈顶索引
 }
 
-// 简化栈，不存在栈满的情况
+// 简化的栈，不存在栈满的情况
+
+// InitStack 初始化栈
+func InitStack(n int) Stack {
+	stack := Stack{
+		Stack:  make([]*sortTreeNode, n),
+		Length: n,
+	}
+	return stack
+}
 
 // Push 入栈
 func (stack *Stack) Push(value *sortTreeNode) {
 	// 栈满
-	if stack.top == stack.length {
-		stack.stack = append(stack.stack, value)
-		stack.length++
+	if stack.Top == stack.Length {
+		stack.Stack = append(stack.Stack, value)
+		stack.Length++
 	} else {
-		stack.stack[stack.top] = value
+		stack.Stack[stack.Top] = value
 	}
-	stack.top++
+	stack.Top++
 }
 
 // Pop 出栈
 func (stack *Stack) Pop() (*sortTreeNode, bool) {
 	// 空栈
-	if stack.top == stack.base {
+	if stack.Top == stack.Base {
 		return nil, false
 	}
 	// 下退一个位置
-	stack.top--
-	return stack.stack[stack.top], true
+	stack.Top--
+	return stack.Stack[stack.Top], true
 }
