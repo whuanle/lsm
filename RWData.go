@@ -10,9 +10,7 @@ import (
 func Get[T any](key string) (T, bool) {
 	log.Print("Get ", key)
 	// 先查内存表
-	database.MemoryLock.RLock()
 	value, result := database.MemoryTree.Search(key)
-	database.MemoryLock.RUnlock()
 
 	if result == kv.Success {
 		return getInstance[T](value.Value)
@@ -38,9 +36,7 @@ func Set[T any](key string, value T) bool {
 		return false
 	}
 
-	database.MemoryLock.Lock()
 	_, _ = database.MemoryTree.Set(key, data)
-	database.MemoryLock.Unlock()
 
 	// 写入 wal.log
 	database.Wal.Write(kv.Value{
@@ -55,9 +51,7 @@ func Set[T any](key string, value T) bool {
 // 返回的 bool 表示是否有旧值，不表示是否删除成功
 func DeleteAndGet[T any](key string) (T, bool) {
 	log.Print("Delete ", key)
-	database.MemoryLock.Lock()
 	value, success := database.MemoryTree.Delete(key)
-	database.MemoryLock.Unlock()
 
 	if success {
 		// 写入 wal.log
@@ -75,9 +69,7 @@ func DeleteAndGet[T any](key string) (T, bool) {
 // Delete 删除元素
 func Delete[T any](key string) {
 	log.Print("Delete ", key)
-	database.MemoryLock.Lock()
 	database.MemoryTree.Delete(key)
-	database.MemoryLock.Unlock()
 	database.Wal.Write(kv.Value{
 		Key:     key,
 		Value:   nil,

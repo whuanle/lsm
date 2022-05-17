@@ -2,7 +2,6 @@ package lsm
 
 import (
 	"github.com/whuanle/lsm/config"
-	"github.com/whuanle/lsm/sortTree"
 	"log"
 	"time"
 )
@@ -20,13 +19,15 @@ func Check() {
 
 func checkMemory() {
 	con := config.GetConfig()
-	if database.MemoryTree.GetCount() < con.Threshold {
+	count := database.MemoryTree.GetCount()
+	if count < con.Threshold {
 		return
 	}
-	database.MemoryLock.Lock()
-	tmpTree := database.MemoryTree
-	database.MemoryTree = &sortTree.Tree{}
-	database.MemoryLock.Unlock()
+	// 交互内存
+	log.Println("Compressing memory")
+	tmpTree := database.MemoryTree.Swap()
+
 	// 将内存表存储到 SsTable 中
 	database.TableTree.CreateNewTable(tmpTree.GetValues())
+	database.Wal.Reset()
 }

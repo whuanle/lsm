@@ -5,6 +5,8 @@ import (
 	"github.com/whuanle/lsm/kv"
 	"github.com/whuanle/lsm/sortTree"
 	"log"
+	"os"
+	"time"
 )
 
 /*
@@ -18,38 +20,36 @@ func (tree *TableTree) Check() {
 
 // 压缩文件
 func (tree *TableTree) majorCompaction() {
-	tree.lock.Lock()
-	defer tree.lock.Unlock()
-
 	con := config.GetConfig()
-	for levelIndex, levelNode := range tree.levels {
+	for levelIndex, _ := range tree.levels {
+		tableSize := int(tree.GetLevelSize(levelIndex) / 1000 / 1000) // 转为 MB
 		// 当前层 SsTable 数量是否已经到达阈值
-		if tree.getCount(levelIndex) > con.PartSize {
-			tree.majorCompactionLevel(levelIndex)
-			continue
-		}
 		// 当前层的 SsTable 总大小已经到底阈值
-		var size int64
-		node := levelNode
-		for node != nil {
-			size += node.table.GetDbSize()
-		}
-		tableSize := int(size / 1000 / 1000)
-		if tableSize > levelMaxSize[levelIndex] {
+		if tree.getCount(levelIndex) > con.PartSize || tableSize > levelMaxSize[levelIndex] {
 			tree.majorCompactionLevel(levelIndex)
-			continue
 		}
 	}
 }
 
-// 压缩当前层的文件到下一层
+// 压缩当前层的文件到下一层，只能被 majorCompaction() 调用
 func (tree *TableTree) majorCompactionLevel(level int) {
-	// 用于加载 一个 SsTable 的内容到缓存中
+	log.Println("Compressing layer ", level, " files")
+	start := time.Now()
+	defer func() {
+		elapse := time.Since(start)
+		log.Println("Completed compression,consumption of time : ", elapse)
+	}()
+
+	log.Printf("Compressing layer %d.db files\r\n", level)
+	// 用于加载 一个 SsTable 的数据区到缓存中
 	tableCache := make([]byte, levelMaxSize[level])
 	currentNode := tree.levels[level]
+
 	// 将当前层的 SsTable 合并到一个有序二叉树中
 	memoryTree := &sortTree.Tree{}
+	memoryTree.Init()
 
+	tree.lock.Lock()
 	for currentNode != nil {
 		table := currentNode.table
 		// 将 SsTable 的数据区加载到 tableCache 内存中
@@ -57,7 +57,15 @@ func (tree *TableTree) majorCompactionLevel(level int) {
 			tableCache = make([]byte, table.tableMetaInfo.dataLen)
 		}
 		newSlice := tableCache[0:table.tableMetaInfo.dataLen]
-		table.readDataArea(newSlice)
+		// 读取 SsTable 的数据区
+		if _, err := table.f.Seek(0, 0); err != nil {
+			log.Println(" error open file ", table.filePath)
+			panic(err)
+		}
+		if _, err := table.f.Read(newSlice); err != nil {
+			log.Println(" error read file ", table.filePath)
+			panic(err)
+		}
 		// 读取每一个元素
 		for k, position := range table.sparseIndex {
 			if position.Deleted == false {
@@ -72,10 +80,11 @@ func (tree *TableTree) majorCompactionLevel(level int) {
 		}
 		currentNode = currentNode.next
 	}
-
+	tree.lock.Unlock()
+	
 	// 将 SortTree 压缩合并成一个 SsTable
 	values := memoryTree.GetValues()
-	newLevel := level
+	newLevel := level + 1
 	// 目前最多支持 10 层
 	if newLevel > 10 {
 		newLevel = 10
@@ -87,10 +96,27 @@ func (tree *TableTree) majorCompactionLevel(level int) {
 	// 重置该层
 	if level < 10 {
 		tree.levels[level] = nil
+		tree.clearLevel(oldNode)
 	}
-	// 清理每个旧的 SsTable
+
+}
+
+func (tree *TableTree) clearLevel(oldNode *tableNode) {
+	tree.lock.Lock()
+	defer tree.lock.Unlock()
+	// 清理当前层的每个的 SsTable
 	for oldNode != nil {
-		oldNode.table.Delete()
+		err := oldNode.table.f.Close()
+		if err != nil {
+			log.Println(" error close file,", oldNode.table.filePath)
+			panic(err)
+		}
+		err = os.Remove(oldNode.table.filePath)
+		if err != nil {
+			log.Println(" error delete file,", oldNode.table.filePath)
+			panic(err)
+		}
+		oldNode.table.f = nil
 		oldNode.table = nil
 		oldNode = oldNode.next
 	}

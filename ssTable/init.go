@@ -17,7 +17,7 @@ func (tree *TableTree) Init(dir string) {
 	start := time.Now()
 	defer func() {
 		elapse := time.Since(start)
-		log.Println("Consumption of time : ", elapse)
+		log.Println("The SsTable list are being loaded,consumption of time : ", elapse)
 	}()
 
 	// 初始化每一层 SsTable 的文件总最大值
@@ -47,9 +47,4 @@ func (tree *TableTree) Init(dir string) {
 			tree.loadDbFile(path.Join(dir, info.Name()))
 		}
 	}
-}
-
-func (table *SsTable) Init(path string) {
-	table.filePath = path
-	table.loadFileHandle()
 }

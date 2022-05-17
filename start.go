@@ -7,7 +7,6 @@ import (
 	"github.com/whuanle/lsm/wal"
 	"log"
 	"os"
-	"sync"
 )
 
 // Start 启动数据库
@@ -21,6 +20,13 @@ func Start(con config.Config) {
 	// 初始化数据库
 	log.Println("Initializing the database")
 	initDatabase(con.DataDir)
+
+	// 数据库启动前进行一次数据压缩
+	log.Println("Performing background checks...")
+	// 检查内存
+	checkMemory()
+	// 检查压缩数据库文件
+	database.TableTree.Check()
 	// 启动后台线程
 	go Check()
 }
@@ -31,7 +37,6 @@ func initDatabase(dir string) {
 		MemoryTree: &sortTree.Tree{},
 		Wal:        &wal.Wal{},
 		TableTree:  &ssTable.TableTree{},
-		MemoryLock: &sync.RWMutex{},
 	}
 	// 从磁盘文件中恢复数据
 	// 如果目录不存在，则为空数据库
@@ -45,7 +50,6 @@ func initDatabase(dir string) {
 	}
 	// 从数据目录中，加载 WalF、database 文件
 	// 非空数据库，则开始恢复数据，加载 WalF 和 SsTable 文件
-	log.Println("Loading wal.log...")
 	memoryTree := database.Wal.Init(dir)
 
 	database.MemoryTree = memoryTree

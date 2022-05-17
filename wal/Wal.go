@@ -20,10 +20,11 @@ type Wal struct {
 }
 
 func (w *Wal) Init(dir string) *sortTree.Tree {
+	log.Println("Loading wal.log...")
 	start := time.Now()
 	defer func() {
 		elapse := time.Since(start)
-		log.Println("Consumption of time : ", elapse)
+		log.Println("Loaded wal.log,Consumption of time : ", elapse)
 	}()
 
 	walPath := path.Join(dir, "wal.log")

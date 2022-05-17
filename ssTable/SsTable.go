@@ -37,3 +37,8 @@ type tableNode struct {
 	table *SsTable
 	next  *tableNode
 }
+
+func (table *SsTable) Init(path string) {
+	table.filePath = path
+	table.loadFileHandle()
+}

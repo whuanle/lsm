@@ -32,12 +32,12 @@ func (tree *Tree) GetCount() int {
 
 // Search 查找 Key 的值
 func (tree *Tree) Search(key string) (kv.Value, kv.SearchResult) {
+	tree.rWLock.RLock()
+	defer tree.rWLock.RUnlock()
+
 	if tree == nil {
 		log.Fatal("The tree is nil")
 	}
-
-	tree.rWLock.RLock()
-	defer tree.rWLock.RUnlock()
 
 	currentNode := tree.root
 	// 有序查找
@@ -62,6 +62,9 @@ func (tree *Tree) Search(key string) (kv.Value, kv.SearchResult) {
 
 // Set 设置 Key 的值并返回旧值
 func (tree *Tree) Set(key string, value []byte) (oldValue kv.Value, hasOld bool) {
+	tree.rWLock.Lock()
+	defer tree.rWLock.Unlock()
+	
 	if tree == nil {
 		log.Fatal("The tree is nil")
 	}
@@ -73,9 +76,6 @@ func (tree *Tree) Set(key string, value []byte) (oldValue kv.Value, hasOld bool)
 			Value: value,
 		},
 	}
-
-	tree.rWLock.Lock()
-	defer tree.rWLock.Unlock()
 
 	if current == nil {
 		tree.root = newNode
@@ -123,12 +123,13 @@ func (tree *Tree) Set(key string, value []byte) (oldValue kv.Value, hasOld bool)
 
 // Delete 删除 key 并返回旧值
 func (tree *Tree) Delete(key string) (oldValue kv.Value, hasOld bool) {
+	tree.rWLock.Lock()
+	defer tree.rWLock.Unlock()
+
 	if tree == nil {
 		log.Fatal("The tree is nil")
 	}
 
-	tree.rWLock.Lock()
-	defer tree.rWLock.Unlock()
 	newNode := &treeNode{
 		KV: kv.Value{
 			Key:     key,
@@ -171,6 +172,9 @@ func (tree *Tree) Delete(key string) (oldValue kv.Value, hasOld bool) {
 
 // GetValues 获取树中的所有元素，这是一个有序元素列表
 func (tree *Tree) GetValues() []kv.Value {
+	tree.rWLock.RLock()
+	defer tree.rWLock.RUnlock()
+
 	// 使用栈，而非递归，栈使用了切片，可以自动扩展大小，不必担心栈满
 	stack := InitStack(tree.count / 2)
 	values := make([]kv.Value, 0)
@@ -204,5 +208,6 @@ func (tree *Tree) Swap() *Tree {
 	newTree.Init()
 	newTree.root = tree.root
 	tree.root = nil
+	tree.count = 0
 	return newTree
 }

@@ -1,7 +1,6 @@
 package ssTable
 
 import (
-	"encoding/binary"
 	"encoding/json"
 	"github.com/whuanle/lsm/config"
 	"github.com/whuanle/lsm/kv"
@@ -9,6 +8,7 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"sync"
 )
 
 // CreateNewTable 创建新的 SsTable
@@ -17,28 +17,25 @@ func (tree *TableTree) CreateNewTable(values []kv.Value) {
 }
 
 // 创建新的 SsTable，插入到合适的层
-func (tree *TableTree) createTable(values []kv.Value, level int) {
-	tree.lock.Lock()
-	defer tree.lock.Unlock()
-
+func (tree *TableTree) createTable(values []kv.Value, level int) *SsTable {
 	// 生成数据区
-	index := 0
 	keys := make([]string, 0)
 	positions := make(map[string]Position)
 	dataArea := make([]byte, 0)
-	for _, v := range values {
-		data, err := json.Marshal(v)
+	for _, value := range values {
+		data, err := kv.Encode(value)
 		if err != nil {
-			log.Fatal(err)
+			log.Println("Failed to insert Key: ", value.Key, err)
+			continue
 		}
-		keys = append(keys, v.Key)
-		dataArea = append(dataArea, data...)
-		positions[v.Key] = Position{
-			Start:   int64(index),
+		keys = append(keys, value.Key)
+		// 文件定位记录
+		positions[value.Key] = Position{
+			Start:   int64(len(dataArea)),
 			Len:     int64(len(data)),
-			Deleted: v.Deleted,
+			Deleted: value.Deleted,
 		}
-		index += len(dataArea)
+		dataArea = append(dataArea, data...)
 	}
 	sort.Strings(keys)
 
@@ -46,7 +43,7 @@ func (tree *TableTree) createTable(values []kv.Value, level int) {
 	// map[string]Position to json
 	indexArea, err := json.Marshal(positions)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("An SsTable file cannot be created,", err)
 	}
 
 	// 生成 MetaInfo
@@ -58,61 +55,26 @@ func (tree *TableTree) createTable(values []kv.Value, level int) {
 		indexLen:   int64(len(indexArea)),
 	}
 
-	con := config.GetConfig()
-	maxIndex := tree.getMaxIndex(0)
-	filePath := con.DataDir + "/" + "0." + strconv.Itoa(maxIndex) + ".db"
-
 	table := &SsTable{
-		filePath:      filePath,
 		tableMetaInfo: meta,
 		sparseIndex:   positions,
 		sortIndex:     keys,
+		lock:          &sync.RWMutex{},
 	}
+	index := tree.insert(table, level)
+	log.Printf("Create a new SsTable,level: %d ,index: %d\r\n", level, index)
+	con := config.GetConfig()
+	filePath := con.DataDir + "/" + strconv.Itoa(level) + "." + strconv.Itoa(index) + ".db"
+	table.filePath = filePath
 
-	f, err := os.OpenFile(table.filePath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	writeDataToFile(filePath, dataArea, indexArea, meta)
+	// 以只读的形式打开文件
+	f, err := os.OpenFile(table.filePath, os.O_RDONLY, 0666)
 	if err != nil {
-		log.Fatal(" error create file ", err)
+		log.Println(" error open file ", table.filePath)
+		panic(err)
 	}
-	_, err = f.Write(dataArea)
-	if err != nil {
-		log.Fatal(" error write file ", err)
-	}
-	_, err = f.Write(indexArea)
-	if err != nil {
-		log.Fatal(" error write file ", err)
-	}
-	// 写入元数据到文件末尾
-	// 注意，右侧必须能够识别字节长度的类型，不能使用 int 这种类型，只能使用 int32、int64 等
-	_ = binary.Write(f, binary.LittleEndian, &meta.version)
-	_ = binary.Write(f, binary.LittleEndian, &meta.dataStart)
-	_ = binary.Write(f, binary.LittleEndian, &meta.dataLen)
-	_ = binary.Write(f, binary.LittleEndian, &meta.indexStart)
-	_ = binary.Write(f, binary.LittleEndian, &meta.indexLen)
-	_, _ = f.Seek(0, 0)
+	table.f = f
 
-	tree.insert(table, level)
-}
-
-// 插入一个 SsTable 到指定层
-func (tree *TableTree) insert(table *SsTable, level int) {
-	// 每次插入的，都出现在最后面
-	node := tree.levels[level]
-	newNode := &tableNode{
-		table: table,
-		next:  node,
-	}
-
-	if node == nil {
-		tree.levels[0] = newNode
-	} else {
-		i := 0
-		for node != nil {
-			i++
-			if node.next == nil {
-				newNode.index = node.index + 1
-				node.next = newNode
-				break
-			}
-		}
-	}
+	return table
 }

@@ -36,9 +36,6 @@ func (tree *TableTree) Search(key string) (kv.Value, kv.SearchResult) {
 
 // 获取一层中的 SsTable 的最大序号
 func (tree *TableTree) getMaxIndex(level int) int {
-	tree.lock.RLock()
-	defer tree.lock.RUnlock()
-
 	node := tree.levels[level]
 	for node != nil {
 		if node.next == nil {
