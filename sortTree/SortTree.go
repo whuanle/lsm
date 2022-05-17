@@ -195,3 +195,14 @@ func (tree *Tree) GetValues() []kv.Value {
 	}
 	return values
 }
+
+func (tree *Tree) Swap() *Tree {
+	tree.rWLock.Lock()
+	defer tree.rWLock.Unlock()
+
+	newTree := &Tree{}
+	newTree.Init()
+	newTree.root = tree.root
+	tree.root = nil
+	return newTree
+}
