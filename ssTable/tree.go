@@ -9,7 +9,7 @@ func (tree *TableTree) insert(table *SsTable, level int) (index int) {
 	node := tree.levels[level]
 	newNode := &tableNode{
 		table: table,
-		next:  node,
+		next:  nil,
 		index: 0,
 	}
 
@@ -20,6 +20,9 @@ func (tree *TableTree) insert(table *SsTable, level int) (index int) {
 			if node.next == nil {
 				newNode.index = node.index + 1
 				node.next = newNode
+				break
+			} else {
+				node = node.next
 			}
 		}
 	}

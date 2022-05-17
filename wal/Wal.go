@@ -113,6 +113,7 @@ func (w *Wal) loadToMemory() *sortTree.Tree {
 func (w *Wal) Write(value kv.Value) {
 	w.lock.Lock()
 	defer w.lock.Unlock()
+
 	if value.Deleted {
 		log.Println("wal.log:	delete ", value.Key)
 	} else {
@@ -126,7 +127,7 @@ func (w *Wal) Write(value kv.Value) {
 		panic(err)
 	}
 
-	binary.Write(w.f, binary.LittleEndian, data)
+	err = binary.Write(w.f, binary.LittleEndian, data)
 	if err != nil {
 		log.Println("Failed to write the wal.log")
 		panic(err)
