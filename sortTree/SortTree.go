@@ -1,4 +1,4 @@
-package memory
+package sortTree
 
 import (
 	"github.com/whuanle/lsm/kv"
@@ -6,32 +6,32 @@ import (
 	"sync"
 )
 
-// sortTreeNode 有序树节点
-type sortTreeNode struct {
+// treeNode 有序树节点
+type treeNode struct {
 	KV    kv.Value
-	Left  *sortTreeNode
-	Right *sortTreeNode
+	Left  *treeNode
+	Right *treeNode
 }
 
-// SortTree 有序树
-type SortTree struct {
-	root   *sortTreeNode
+// Tree 有序树
+type Tree struct {
+	root   *treeNode
 	count  int
 	rWLock *sync.RWMutex
 }
 
-func (tree *SortTree) Init() {
+// Init 初始化树
+func (tree *Tree) Init() {
 	tree.rWLock = &sync.RWMutex{}
 }
 
-// GetCount 获取内存表元素数量
-func (tree *SortTree) GetCount() int {
+// GetCount 获取树中的元素数量
+func (tree *Tree) GetCount() int {
 	return tree.count
 }
 
-// Search 查找 Key 的值，
-// kv.Value 的 Deleted 一定为 false
-func (tree *SortTree) Search(key string) (kv.Value, kv.SearchResult) {
+// Search 查找 Key 的值
+func (tree *Tree) Search(key string) (kv.Value, kv.SearchResult) {
 	if tree == nil {
 		log.Fatal("The tree is nil")
 	}
@@ -40,7 +40,7 @@ func (tree *SortTree) Search(key string) (kv.Value, kv.SearchResult) {
 	defer tree.rWLock.RUnlock()
 
 	currentNode := tree.root
-	// 层次遍历
+	// 有序查找
 	for currentNode != nil {
 		if key == currentNode.KV.Key {
 			if currentNode.KV.Deleted == false {
@@ -60,15 +60,14 @@ func (tree *SortTree) Search(key string) (kv.Value, kv.SearchResult) {
 	return kv.Value{}, kv.None
 }
 
-// Set 设置 Key 的值并返回旧值，
-// 返回的 bool 只表示是否有旧值
-func (tree *SortTree) Set(key string, value []byte) (oldValue kv.Value, hasOld bool) {
+// Set 设置 Key 的值并返回旧值
+func (tree *Tree) Set(key string, value []byte) (oldValue kv.Value, hasOld bool) {
 	if tree == nil {
 		log.Fatal("The tree is nil")
 	}
 
 	current := tree.root
-	newNode := &sortTreeNode{
+	newNode := &treeNode{
 		KV: kv.Value{
 			Key:   key,
 			Value: value,
@@ -122,16 +121,15 @@ func (tree *SortTree) Set(key string, value []byte) (oldValue kv.Value, hasOld b
 	return kv.Value{}, false
 }
 
-// Delete 删除并返回旧值，
-// 返回的 bool 只表示是否有旧值
-func (tree *SortTree) Delete(key string) (oldValue kv.Value, hasOld bool) {
+// Delete 删除 key 并返回旧值
+func (tree *Tree) Delete(key string) (oldValue kv.Value, hasOld bool) {
 	if tree == nil {
 		log.Fatal("The tree is nil")
 	}
 
 	tree.rWLock.Lock()
 	defer tree.rWLock.Unlock()
-	newNode := &sortTreeNode{
+	newNode := &treeNode{
 		KV: kv.Value{
 			Key:     key,
 			Value:   nil,
@@ -139,48 +137,48 @@ func (tree *SortTree) Delete(key string) (oldValue kv.Value, hasOld bool) {
 		},
 	}
 
-	current := tree.root
-	for current != nil {
-		if key == current.KV.Key {
+	currentNode := tree.root
+	for currentNode != nil {
+		if key == currentNode.KV.Key {
 			// 存在且未被删除
-			if current.KV.Deleted == false {
-				current.KV.Deleted = true
+			if currentNode.KV.Deleted == false {
+				currentNode.KV.Deleted = true
 				tree.count--
-				return current.KV, true
+				return currentNode.KV, true
 			} else { // 已被删除过
 				return kv.Value{}, false
 			}
 		}
 		// 往下一层查找
-		if key < current.KV.Key {
+		if key < currentNode.KV.Key {
 			// 如果不存在此 key，则插入一个删除标记
-			if current.Left == nil {
-				current.Left = newNode
+			if currentNode.Left == nil {
+				currentNode.Left = newNode
 			}
 			// 继续对比下一层
-			current = current.Left
+			currentNode = currentNode.Left
 		} else {
 			// 如果不存在此 key，则插入一个删除标记
-			if current.Right == nil {
-				current.Right = newNode
+			if currentNode.Right == nil {
+				currentNode.Right = newNode
 			}
 			// 继续对比下一层
-			current = current.Right
+			currentNode = currentNode.Right
 		}
 	}
 	return kv.Value{}, false
 }
 
 // GetValues 获取树中的所有元素，这是一个有序元素列表
-func (tree *SortTree) GetValues() []kv.Value {
-	// 使用栈，而非递归
+func (tree *Tree) GetValues() []kv.Value {
+	// 使用栈，而非递归，栈使用了切片，可以自动扩展大小，不必担心栈满
 	stack := InitStack(tree.count / 2)
 	values := make([]kv.Value, 0)
 
 	tree.rWLock.RLock()
 	defer tree.rWLock.RUnlock()
 
-	// 使用栈非递归遍历树
+	// 从小到大获取树的元素
 	currentNode := tree.root
 	for {
 		if currentNode != nil {

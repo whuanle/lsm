@@ -1,11 +1,11 @@
-package memory
+package sortTree
 
 import (
 	"testing"
 )
 
 func Test_SortTree_Insert(t *testing.T) {
-	tree := &SortTree{}
+	tree := &Tree{}
 	_, hasOld := tree.Set("a", []byte{1, 2, 3})
 	if hasOld == true {
 		t.Error(hasOld)
