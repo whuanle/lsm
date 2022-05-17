@@ -8,10 +8,12 @@ import (
 
 // Get 获取一个元素
 func Get[T any](key string) (T, bool) {
+	log.Print("Get ", key)
 	// 先查内存表
 	database.MemoryLock.RLock()
 	value, result := database.MemoryTree.Search(key)
 	database.MemoryLock.RUnlock()
+
 	if result == kv.Success {
 		return getInstance[T](value.Value)
 	}
@@ -29,18 +31,22 @@ func Get[T any](key string) (T, bool) {
 
 // Set 插入元素
 func Set[T any](key string, value T) bool {
-	v, err := json.Marshal(value)
+	log.Print("Insert ", key, ",")
+	data, err := kv.Convert(value)
 	if err != nil {
 		log.Println(err)
 		return false
 	}
-	database.MemoryLock.RLock()
-	defer database.MemoryLock.RUnlock()
-	_, _ = database.MemoryTree.Set(key, v)
 
+	database.MemoryLock.Lock()
+
+	_, _ = database.MemoryTree.Set(key, data)
+	database.MemoryLock.Unlock()
+
+	// 写入 wal.log
 	database.Wal.Write(kv.Value{
 		Key:     key,
-		Value:   v,
+		Value:   data,
 		Deleted: false,
 	})
 	return true
@@ -49,10 +55,18 @@ func Set[T any](key string, value T) bool {
 // DeleteAndGet 删除元素并尝试获取旧的值，
 // 返回的 bool 表示是否有旧值，不表示是否删除成功
 func DeleteAndGet[T any](key string) (T, bool) {
-	database.MemoryLock.RLock()
+	log.Print("Delete ", key)
+	database.MemoryLock.Lock()
 	value, success := database.MemoryTree.Delete(key)
-	database.MemoryLock.RUnlock()
+	database.MemoryLock.Unlock()
+
 	if success {
+		// 写入 wal.log
+		database.Wal.Write(kv.Value{
+			Key:     key,
+			Value:   nil,
+			Deleted: true,
+		})
 		return getInstance[T](value.Value)
 	}
 	var nilV T
@@ -61,9 +75,15 @@ func DeleteAndGet[T any](key string) (T, bool) {
 
 // Delete 删除元素
 func Delete[T any](key string) {
-	database.MemoryLock.RLock()
+	log.Print("Delete ", key)
+	database.MemoryLock.Lock()
 	database.MemoryTree.Delete(key)
-	database.MemoryLock.RUnlock()
+	database.MemoryLock.Unlock()
+	database.Wal.Write(kv.Value{
+		Key:     key,
+		Value:   nil,
+		Deleted: true,
+	})
 }
 
 // 将字节数组转为类型对象

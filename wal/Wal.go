@@ -75,8 +75,8 @@ func (w *Wal) loadToMemory() *sortTree.Tree {
 		panic(err)
 	}
 
-	dataLen := 0      // 元素的字节数量
-	index := int64(0) // 当前索引
+	dataLen := int64(0) // 元素的字节数量
+	index := int64(0)   // 当前索引
 	for index < size {
 		// 前面的 8 个字节表示元素的长度
 		indexData := data[index:(index + 8)]
@@ -88,6 +88,7 @@ func (w *Wal) loadToMemory() *sortTree.Tree {
 			panic(err)
 		}
 		// 将元素的所有字节读取出来，并还原为 kv.Value
+		index += 8
 		dataArea := data[index:(index + int64(dataLen))]
 		var value kv.Value
 		err = json.Unmarshal(dataArea, &value)
@@ -102,7 +103,7 @@ func (w *Wal) loadToMemory() *sortTree.Tree {
 			tree.Set(value.Key, value.Value)
 		}
 		// 读取下一个元素
-		index = index + 8 + int64(dataLen)
+		index = index + int64(dataLen)
 	}
 	return tree
 }
