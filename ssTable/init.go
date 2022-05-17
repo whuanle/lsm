@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 	"path"
+	"sync"
 	"time"
 )
 
@@ -34,6 +35,7 @@ func (tree *TableTree) Init(dir string) {
 	levelMaxSize[9] = levelMaxSize[8] * 10
 
 	tree.levels = make([]*tableNode, 10)
+	tree.lock = &sync.RWMutex{}
 	infos, err := ioutil.ReadDir(dir)
 	if err != nil {
 		log.Println("Failed to read the database file")

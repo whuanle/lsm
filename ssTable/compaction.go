@@ -22,21 +22,21 @@ func (tree *TableTree) majorCompaction() {
 	defer tree.lock.Unlock()
 
 	con := config.GetConfig()
-	for k, v := range tree.levels {
+	for levelIndex, levelNode := range tree.levels {
 		// 当前层 SsTable 数量是否已经到达阈值
-		if tree.getCount(k) > con.PartSize {
-			tree.majorCompactionLevel(k)
+		if tree.getCount(levelIndex) > con.PartSize {
+			tree.majorCompactionLevel(levelIndex)
 			continue
 		}
 		// 当前层的 SsTable 总大小已经到底阈值
 		var size int64
-		node := v
+		node := levelNode
 		for node != nil {
 			size += node.table.GetDbSize()
 		}
 		tableSize := int(size / 1000 / 1000)
-		if tableSize > levelMaxSize[k] {
-			tree.majorCompactionLevel(k)
+		if tableSize > levelMaxSize[levelIndex] {
+			tree.majorCompactionLevel(levelIndex)
 			continue
 		}
 	}

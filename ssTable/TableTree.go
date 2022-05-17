@@ -51,9 +51,6 @@ func (tree *TableTree) getMaxIndex(level int) int {
 
 // 获取该层有多少个 SsTable
 func (tree *TableTree) getCount(level int) int {
-	tree.lock.RLock()
-	defer tree.lock.RUnlock()
-
 	node := tree.levels[level]
 	count := 0
 	for node != nil {
