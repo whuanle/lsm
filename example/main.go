@@ -1,9 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"github.com/whuanle/lsm"
 	"github.com/whuanle/lsm/config"
-	"github.com/whuanle/lsm/kv"
 )
 
 type TestValue struct {
@@ -21,19 +21,16 @@ func main() {
 		Threshold:  500,
 	})
 	lsm.Set("a", "tes")
+
 	testV := TestValue{
 		A: 1,
 		B: 1,
 		C: 3,
 		D: "00000000000000000000000000000000000000",
 	}
-	data, _ := kv.Convert(testV)
-	value := kv.Value{
-		Key:     "abcdef",
-		Value:   data,
-		Deleted: false,
-	}
-	lsm.Set("b", value)
+	lsm.Set("b", testV)
+	b, _ := lsm.Get[TestValue]("b")
+	fmt.Println(b)
 	for {
 
 	}

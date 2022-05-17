@@ -125,7 +125,7 @@ func (w *Wal) Write(value kv.Value) {
 		panic(err)
 	}
 
-	err = binary.Write(w.f, binary.LittleEndian, data)
+	binary.Write(w.f, binary.LittleEndian, data)
 	if err != nil {
 		log.Println("Failed to write the wal.log")
 		panic(err)

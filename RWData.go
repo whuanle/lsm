@@ -39,7 +39,6 @@ func Set[T any](key string, value T) bool {
 	}
 
 	database.MemoryLock.Lock()
-
 	_, _ = database.MemoryTree.Set(key, data)
 	database.MemoryLock.Unlock()
 
