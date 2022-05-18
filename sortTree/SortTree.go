@@ -64,7 +64,7 @@ func (tree *Tree) Search(key string) (kv.Value, kv.SearchResult) {
 func (tree *Tree) Set(key string, value []byte) (oldValue kv.Value, hasOld bool) {
 	tree.rWLock.Lock()
 	defer tree.rWLock.Unlock()
-	
+
 	if tree == nil {
 		log.Fatal("The tree is nil")
 	}
@@ -143,6 +143,7 @@ func (tree *Tree) Delete(key string) (oldValue kv.Value, hasOld bool) {
 		if key == currentNode.KV.Key {
 			// 存在且未被删除
 			if currentNode.KV.Deleted == false {
+				currentNode.KV.Value = nil
 				currentNode.KV.Deleted = true
 				tree.count--
 				return currentNode.KV, true
