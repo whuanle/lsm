@@ -14,7 +14,7 @@ package ssTable
 └──────────────────────────┴─────────────────┴──────────────┘
 */
 
-// MetaInfo 是 SsTable 的元数据，
+// MetaInfo 是 SSTable 的元数据，
 // 元数据出现在磁盘文件的末尾
 type MetaInfo struct {
 	// 版本号

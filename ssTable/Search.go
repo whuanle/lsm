@@ -7,7 +7,7 @@ import (
 
 // Search 查找元素，
 // 先使用二分查找法从内存中的 keys 列表查找 Key，如果存在，找到 Position ，再通过从数据区加载
-func (table *SsTable) Search(key string) (value kv.Value, result kv.SearchResult) {
+func (table *SSTable) Search(key string) (value kv.Value, result kv.SearchResult) {
 	table.lock.Lock()
 	defer table.lock.Unlock()
 

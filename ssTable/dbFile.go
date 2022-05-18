@@ -7,11 +7,11 @@ import (
 )
 
 /*
-管理 SsTable 的磁盘文件
+管理 SSTable 的磁盘文件
 */
 
 // GetDbSize 获取 .db 数据文件大小
-func (table *SsTable) GetDbSize() int64 {
+func (table *SSTable) GetDbSize() int64 {
 	info, err := os.Stat(table.filePath)
 	if err != nil {
 		log.Fatal(err)
@@ -19,7 +19,7 @@ func (table *SsTable) GetDbSize() int64 {
 	return info.Size()
 }
 
-// GetLevelSize 获取指定层的 SsTable 总大小
+// GetLevelSize 获取指定层的 SSTable 总大小
 func (tree *TableTree) GetLevelSize(level int) int64 {
 	var size int64
 	node := tree.levels[level]

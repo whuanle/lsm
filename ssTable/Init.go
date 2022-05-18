@@ -13,14 +13,14 @@ var levelMaxSize []int
 
 // Init 初始化 TableTree
 func (tree *TableTree) Init(dir string) {
-	log.Println("The SsTable list are being loaded")
+	log.Println("The SSTable list are being loaded")
 	start := time.Now()
 	defer func() {
 		elapse := time.Since(start)
-		log.Println("The SsTable list are being loaded,consumption of time : ", elapse)
+		log.Println("The SSTable list are being loaded,consumption of time : ", elapse)
 	}()
 
-	// 初始化每一层 SsTable 的文件总最大值
+	// 初始化每一层 SSTable 的文件总最大值
 	con := config.GetConfig()
 	levelMaxSize = make([]int, 10)
 	levelMaxSize[0] = con.Level0Size
@@ -42,7 +42,7 @@ func (tree *TableTree) Init(dir string) {
 		panic(err)
 	}
 	for _, info := range infos {
-		// 如果是 SsTable 文件
+		// 如果是 SSTable 文件
 		if path.Ext(info.Name()) == ".db" {
 			tree.loadDbFile(path.Join(dir, info.Name()))
 		}

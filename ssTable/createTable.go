@@ -11,13 +11,13 @@ import (
 	"sync"
 )
 
-// CreateNewTable 创建新的 SsTable
+// CreateNewTable 创建新的 SSTable
 func (tree *TableTree) CreateNewTable(values []kv.Value) {
 	tree.createTable(values, 0)
 }
 
-// 创建新的 SsTable，插入到合适的层
-func (tree *TableTree) createTable(values []kv.Value, level int) *SsTable {
+// 创建新的 SSTable，插入到合适的层
+func (tree *TableTree) createTable(values []kv.Value, level int) *SSTable {
 	// 生成数据区
 	keys := make([]string, 0)
 	positions := make(map[string]Position)
@@ -43,7 +43,7 @@ func (tree *TableTree) createTable(values []kv.Value, level int) *SsTable {
 	// map[string]Position to json
 	indexArea, err := json.Marshal(positions)
 	if err != nil {
-		log.Fatal("An SsTable file cannot be created,", err)
+		log.Fatal("An SSTable file cannot be created,", err)
 	}
 
 	// 生成 MetaInfo
@@ -55,14 +55,14 @@ func (tree *TableTree) createTable(values []kv.Value, level int) *SsTable {
 		indexLen:   int64(len(indexArea)),
 	}
 
-	table := &SsTable{
+	table := &SSTable{
 		tableMetaInfo: meta,
 		sparseIndex:   positions,
 		sortIndex:     keys,
 		lock:          &sync.RWMutex{},
 	}
 	index := tree.insert(table, level)
-	log.Printf("Create a new SsTable,level: %d ,index: %d\r\n", level, index)
+	log.Printf("Create a new SSTable,level: %d ,index: %d\r\n", level, index)
 	con := config.GetConfig()
 	filePath := con.DataDir + "/" + strconv.Itoa(level) + "." + strconv.Itoa(index) + ".db"
 	table.filePath = filePath

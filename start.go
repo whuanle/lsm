@@ -31,7 +31,7 @@ func Start(con config.Config) {
 	go Check()
 }
 
-// 初始化 Database，从磁盘文件中还原 SsTable、WalF、内存表等
+// 初始化 Database，从磁盘文件中还原 SSTable、WalF、内存表等
 func initDatabase(dir string) {
 	database = &Database{
 		MemoryTree: &sortTree.Tree{},
@@ -49,7 +49,7 @@ func initDatabase(dir string) {
 		}
 	}
 	// 从数据目录中，加载 WalF、database 文件
-	// 非空数据库，则开始恢复数据，加载 WalF 和 SsTable 文件
+	// 非空数据库，则开始恢复数据，加载 WalF 和 SSTable 文件
 	memoryTree := database.Wal.Init(dir)
 
 	database.MemoryTree = memoryTree

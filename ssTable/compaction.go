@@ -10,7 +10,7 @@ import (
 )
 
 /*
-TableTree 检查是否需要压缩 SsTable
+TableTree 检查是否需要压缩 SSTable
 */
 
 // Check 检查是否需要压缩数据库文件
@@ -23,8 +23,8 @@ func (tree *TableTree) majorCompaction() {
 	con := config.GetConfig()
 	for levelIndex, _ := range tree.levels {
 		tableSize := int(tree.GetLevelSize(levelIndex) / 1000 / 1000) // 转为 MB
-		// 当前层 SsTable 数量是否已经到达阈值
-		// 当前层的 SsTable 总大小已经到底阈值
+		// 当前层 SSTable 数量是否已经到达阈值
+		// 当前层的 SSTable 总大小已经到底阈值
 		if tree.getCount(levelIndex) > con.PartSize || tableSize > levelMaxSize[levelIndex] {
 			tree.majorCompactionLevel(levelIndex)
 		}
@@ -41,23 +41,23 @@ func (tree *TableTree) majorCompactionLevel(level int) {
 	}()
 
 	log.Printf("Compressing layer %d.db files\r\n", level)
-	// 用于加载 一个 SsTable 的数据区到缓存中
+	// 用于加载 一个 SSTable 的数据区到缓存中
 	tableCache := make([]byte, levelMaxSize[level])
 	currentNode := tree.levels[level]
 
-	// 将当前层的 SsTable 合并到一个有序二叉树中
+	// 将当前层的 SSTable 合并到一个有序二叉树中
 	memoryTree := &sortTree.Tree{}
 	memoryTree.Init()
 
 	tree.lock.Lock()
 	for currentNode != nil {
 		table := currentNode.table
-		// 将 SsTable 的数据区加载到 tableCache 内存中
+		// 将 SSTable 的数据区加载到 tableCache 内存中
 		if int64(len(tableCache)) < table.tableMetaInfo.dataLen {
 			tableCache = make([]byte, table.tableMetaInfo.dataLen)
 		}
 		newSlice := tableCache[0:table.tableMetaInfo.dataLen]
-		// 读取 SsTable 的数据区
+		// 读取 SSTable 的数据区
 		if _, err := table.f.Seek(0, 0); err != nil {
 			log.Println(" error open file ", table.filePath)
 			panic(err)
@@ -81,15 +81,15 @@ func (tree *TableTree) majorCompactionLevel(level int) {
 		currentNode = currentNode.next
 	}
 	tree.lock.Unlock()
-	
-	// 将 SortTree 压缩合并成一个 SsTable
+
+	// 将 SortTree 压缩合并成一个 SSTable
 	values := memoryTree.GetValues()
 	newLevel := level + 1
 	// 目前最多支持 10 层
 	if newLevel > 10 {
 		newLevel = 10
 	}
-	// 创建新的 SsTable
+	// 创建新的 SSTable
 	tree.createTable(values, newLevel)
 	// 清理该层的文件
 	oldNode := tree.levels[level]
@@ -104,7 +104,7 @@ func (tree *TableTree) majorCompactionLevel(level int) {
 func (tree *TableTree) clearLevel(oldNode *tableNode) {
 	tree.lock.Lock()
 	defer tree.lock.Unlock()
-	// 清理当前层的每个的 SsTable
+	// 清理当前层的每个的 SSTable
 	for oldNode != nil {
 		err := oldNode.table.f.Close()
 		if err != nil {

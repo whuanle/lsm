@@ -9,7 +9,7 @@ import (
 type Database struct {
 	// 内存表
 	MemoryTree *sortTree.Tree
-	// SsTable 列表
+	// SSTable 列表
 	TableTree *ssTable.TableTree
 	// WalF 文件句柄
 	Wal *wal.Wal

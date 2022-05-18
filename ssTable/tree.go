@@ -1,7 +1,7 @@
 package ssTable
 
-// 插入一个 SsTable 到指定层
-func (tree *TableTree) insert(table *SsTable, level int) (index int) {
+// 插入一个 SSTable 到指定层
+func (tree *TableTree) insert(table *SSTable, level int) (index int) {
 	tree.lock.Lock()
 	defer tree.lock.Unlock()
 

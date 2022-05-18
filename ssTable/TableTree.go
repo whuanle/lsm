@@ -7,23 +7,23 @@ import (
 	"strings"
 )
 
-// Search 从所有 SsTable 表中查找数据
+// Search 从所有 SSTable 表中查找数据
 func (tree *TableTree) Search(key string) (kv.Value, kv.SearchResult) {
 	tree.lock.RLock()
 	defer tree.lock.RUnlock()
 
-	// 遍历每一层的 SsTable
+	// 遍历每一层的 SSTable
 	for _, node := range tree.levels {
-		// 整理 SsTable 列表
-		tables := make([]*SsTable, 0)
+		// 整理 SSTable 列表
+		tables := make([]*SSTable, 0)
 		for node != nil {
 			tables = append(tables, node.table)
 			node = node.next
 		}
-		// 查找的时候要从最后一个 SsTable 开始查找
+		// 查找的时候要从最后一个 SSTable 开始查找
 		for i := len(tables) - 1; i >= 0; i-- {
 			value, searchResult := tables[i].Search(key)
-			// 未找到，则查找下一个 SsTable 表
+			// 未找到，则查找下一个 SSTable 表
 			if searchResult == kv.None {
 				continue
 			} else { // 如果找到或已被删除，则返回结果
@@ -34,7 +34,7 @@ func (tree *TableTree) Search(key string) (kv.Value, kv.SearchResult) {
 	return kv.Value{}, kv.None
 }
 
-// 获取一层中的 SsTable 的最大序号
+// 获取一层中的 SSTable 的最大序号
 func (tree *TableTree) getMaxIndex(level int) int {
 	node := tree.levels[level]
 	for node != nil {
@@ -46,7 +46,7 @@ func (tree *TableTree) getMaxIndex(level int) int {
 	return 0
 }
 
-// 获取该层有多少个 SsTable
+// 获取该层有多少个 SSTable
 func (tree *TableTree) getCount(level int) int {
 	node := tree.levels[level]
 	count := 0
@@ -57,7 +57,7 @@ func (tree *TableTree) getCount(level int) int {
 	return count
 }
 
-// 获取一个 db 文件所代表的 SsTable 的所在层数和索引
+// 获取一个 db 文件所代表的 SSTable 的所在层数和索引
 func getLevel(name string) (level int, index int) {
 	// 0.1.db
 	strs := strings.Split(name, ".")

@@ -20,7 +20,7 @@ func (tree *TableTree) loadDbFile(path string) {
 	}()
 
 	level, index := getLevel(filepath.Base(path))
-	table := &SsTable{}
+	table := &SSTable{}
 	table.Init(path)
 	newNode := &tableNode{
 		index: index,
@@ -32,7 +32,7 @@ func (tree *TableTree) loadDbFile(path string) {
 		tree.levels[level] = newNode
 		return
 	}
-	// 将 SsTable 插入到合适的位置
+	// 将 SSTable 插入到合适的位置
 	for currentNode != nil {
 		if newNode.index > currentNode.index {
 			if currentNode.next == nil || currentNode.next.index > newNode.index {
@@ -49,7 +49,7 @@ func (tree *TableTree) loadDbFile(path string) {
 }
 
 // 加载文件句柄
-func (table *SsTable) loadFileHandle() {
+func (table *SSTable) loadFileHandle() {
 	if table.f == nil {
 		// 以只读的形式打开文件
 		f, err := os.OpenFile(table.filePath, os.O_RDONLY, 0666)
@@ -66,7 +66,7 @@ func (table *SsTable) loadFileHandle() {
 }
 
 // 加载稀疏索引区到内存
-func (table *SsTable) loadSparseIndex() {
+func (table *SSTable) loadSparseIndex() {
 	// 加载稀疏索引区
 	bytes := make([]byte, table.tableMetaInfo.indexLen)
 	if _, err := table.f.Seek(table.tableMetaInfo.indexStart, 0); err != nil {
@@ -98,8 +98,8 @@ func (table *SsTable) loadSparseIndex() {
 	table.sortIndex = keys
 }
 
-// 加载 SsTable 文件的元数据，从 SsTable 磁盘文件中读取出 TableMetaInfo
-func (table *SsTable) loadMetaInfo() {
+// 加载 SSTable 文件的元数据，从 SSTable 磁盘文件中读取出 TableMetaInfo
+func (table *SSTable) loadMetaInfo() {
 	f := table.f
 	_, err := f.Seek(0, 0)
 	if err != nil {
