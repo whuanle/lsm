@@ -1,6 +1,7 @@
 package sortTree
 
 import (
+	"github.com/whuanle/lsm/kv"
 	"testing"
 )
 
@@ -32,12 +33,12 @@ func Test_SortTree_Insert(t *testing.T) {
 	}
 
 	data, success := tree.Search("a")
-	if success {
+	if success != kv.Success {
 		t.Error(success)
 	}
 
 	data, success = tree.Search("b")
-	if !success {
+	if success != kv.Success {
 		t.Error(success)
 	}
 
