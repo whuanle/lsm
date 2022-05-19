@@ -28,22 +28,32 @@ func (tree *TableTree) loadDbFile(path string) {
 	}
 
 	currentNode := tree.levels[level]
+
 	if currentNode == nil {
 		tree.levels[level] = newNode
 		return
 	}
+	if newNode.index < currentNode.index {
+		newNode.next = currentNode
+		tree.levels[level] = newNode
+		return
+	}
+
+	lastNode := currentNode
 	// 将 SSTable 插入到合适的位置
 	for currentNode != nil {
-		if newNode.index > currentNode.index {
-			if currentNode.next == nil || currentNode.next.index > newNode.index {
+		if newNode.index < currentNode.index {
+			lastNode.next = newNode
+			newNode.next = currentNode
+			break
+		} else {
+			if currentNode.next == nil || newNode.index < currentNode.next.index {
 				newNode.next = currentNode.next
 				currentNode.next = newNode
 				break
 			}
-		} else {
-			newNode.next = currentNode
-			tree.levels[level] = newNode
-			break
+			lastNode = currentNode
+			currentNode = currentNode.next
 		}
 	}
 }
