@@ -7,8 +7,9 @@ import (
 )
 
 func Check() {
+	con := config.GetConfig()
 	for {
-		time.Sleep(10 * time.Second)
+		time.Sleep(time.Duration(con.CheckInterval) * time.Second)
 		log.Println("Performing background checks...")
 		// 检查内存
 		checkMemory()

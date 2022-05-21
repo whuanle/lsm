@@ -12,6 +12,8 @@ type Config struct {
 	PartSize int
 	// 内存表的 kv 最大数量，超出这个阈值，内存表将会被保存到 SsTable 中
 	Threshold int
+	// 压缩内存、文件的时间间隔，多久进行一次检查工作
+	CheckInterval int
 }
 
 var once *sync.Once = &sync.Once{}

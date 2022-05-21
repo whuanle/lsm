@@ -40,5 +40,6 @@ type tableNode struct {
 
 func (table *SSTable) Init(path string) {
 	table.filePath = path
+	table.lock = &sync.Mutex{}
 	table.loadFileHandle()
 }

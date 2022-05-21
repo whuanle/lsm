@@ -98,11 +98,9 @@ func (table *SSTable) loadSparseIndex() {
 	_, _ = table.f.Seek(0, 0)
 
 	// 先排序
-	var keys []string
+	keys := make([]string, 0)
 	for k := range table.sparseIndex {
-		if table.sparseIndex[k].Deleted {
-			keys = append(keys, k)
-		}
+		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 	table.sortIndex = keys

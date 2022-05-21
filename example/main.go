@@ -26,11 +26,15 @@ func main() {
 		}
 	}()
 	lsm.Start(config.Config{
-		DataDir:    `E:\项目\lsm数据测试目录`,
-		Level0Size: 1,
-		PartSize:   4,
-		Threshold:  500,
+		DataDir:       `E:\项目\lsm数据测试目录`,
+		Level0Size:    1,
+		PartSize:      4,
+		Threshold:     500,
+		CheckInterval: 3,
 	})
+	inputReader := bufio.NewReader(os.Stdin)
+	_, _ = inputReader.ReadString('\n')
+
 	// 64 个字节
 	testV := TestValue{
 		A: 1,
@@ -77,6 +81,6 @@ func main() {
 	}
 	elapse := time.Since(start)
 	fmt.Println("插入完成，数据量：", count, ",消耗时间：", elapse)
-	inputReader := bufio.NewReader(os.Stdin)
+	inputReader = bufio.NewReader(os.Stdin)
 	_, _ = inputReader.ReadString('\n')
 }
