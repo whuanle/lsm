@@ -21,10 +21,10 @@ import (
 	})
 	
 ```
-Level0Size：第 0 层的 SSTable 表总大小超过这样阈值时，进行文件合并； 
-PartSize：每层 SSTable 文件数量超过这个值，进行文件合并；
-Threshold：内存表元素数量阈值，超过这个值，将会被压缩到 SSTable； 
-CheckInetrval：后台独立线程指向间隔时间，独立线程会检查内存表和所有层的 SSTable ，确定是否需要执行压缩；
+Level0Size：第 0 层的 SSTable 表总大小超过这样阈值时，进行文件合并；   
+PartSize：每层 SSTable 文件数量超过这个值，进行文件合并；  
+Threshold：内存表元素数量阈值，超过这个值，将会被压缩到 SSTable；   
+CheckInetrval：后台独立线程指向间隔时间，独立线程会检查内存表和所有层的 SSTable ，确定是否需要执行压缩；  
 
 
 完整增删查改代码如下：
