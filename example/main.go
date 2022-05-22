@@ -32,10 +32,24 @@ func main() {
 		Threshold:     3000,
 		CheckInterval: 3,
 	})
+	query()
+
+}
+
+func query() {
+	start := time.Now()
 	v, _ := lsm.Get[TestValue]("aaaaaa")
+	elapse := time.Since(start)
+	fmt.Println("查找 aaaaaa 完成，消耗时间：", elapse)
 	fmt.Println(v)
-	inputReader := bufio.NewReader(os.Stdin)
-	_, _ = inputReader.ReadString('\n')
+
+	start = time.Now()
+	v, _ = lsm.Get[TestValue]("aazzzz")
+	elapse = time.Since(start)
+	fmt.Println("查找 aazzzz 完成，消耗时间：", elapse)
+	fmt.Println(v)
+}
+func insert() {
 
 	// 64 个字节
 	testV := TestValue{
@@ -44,6 +58,7 @@ func main() {
 		C: 3,
 		D: "00000000000000000000000000000000000000",
 	}
+	
 	//testVData, _ := json.Marshal(testV)
 	//// 131 个字节
 	//kvData, _ := kv.Encode(kv.Value{
@@ -83,6 +98,4 @@ func main() {
 	}
 	elapse := time.Since(start)
 	fmt.Println("插入完成，数据量：", count, ",消耗时间：", elapse)
-	inputReader = bufio.NewReader(os.Stdin)
-	_, _ = inputReader.ReadString('\n')
 }
