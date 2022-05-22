@@ -27,11 +27,13 @@ func main() {
 	}()
 	lsm.Start(config.Config{
 		DataDir:       `E:\项目\lsm数据测试目录`,
-		Level0Size:    1,
+		Level0Size:    100,
 		PartSize:      4,
-		Threshold:     500,
+		Threshold:     3000,
 		CheckInterval: 3,
 	})
+	v, _ := lsm.Get[TestValue]("aaaaaa")
+	fmt.Println(v)
 	inputReader := bufio.NewReader(os.Stdin)
 	_, _ = inputReader.ReadString('\n')
 

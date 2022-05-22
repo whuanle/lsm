@@ -12,28 +12,32 @@ func (table *SSTable) Search(key string) (value kv.Value, result kv.SearchResult
 	defer table.lock.Unlock()
 
 	// 元素定位
-	var position Position
-	i := 0
-	j := len(table.sortIndex)
+	var position Position = Position{
+		Start: -1,
+	}
+	l := 0
+	r := len(table.sortIndex) - 1
 
 	// 二分查找法，查找 key 是否存在
-	for i < j {
-		mid := int((i + j) / 2)
-		if mid == i || mid == j {
-			break
-		}
-		if table.sortIndex[mid] > key {
-			j = mid - 1
-		} else if table.sortIndex[mid] < key {
-			i = mid + 1
-		} else {
+	for l <= r {
+		mid := int((l + r) / 2)
+		if table.sortIndex[mid] == key {
 			// 获取元素定位
 			position = table.sparseIndex[key]
 			// 如果元素已被删除，则返回
 			if position.Deleted {
 				return kv.Value{}, kv.Deleted
 			}
+			break
+		} else if table.sortIndex[mid] < key {
+			l = mid + 1
+		} else if table.sortIndex[mid] > key {
+			r = mid - 1
 		}
+	}
+
+	if position.Start == -1 {
+		return kv.Value{}, kv.None
 	}
 
 	// Todo：如果读取失败，需要增加错误处理过程
