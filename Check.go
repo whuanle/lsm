@@ -8,8 +8,8 @@ import (
 
 func Check() {
 	con := config.GetConfig()
-	for {
-		time.Sleep(time.Duration(con.CheckInterval) * time.Second)
+	ticker := time.Tick(time.Duration(con.CheckInterval) * time.Second)
+	for _ = range ticker {
 		log.Println("Performing background checks...")
 		// 检查内存
 		checkMemory()
