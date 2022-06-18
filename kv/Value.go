@@ -21,6 +21,14 @@ type Value struct {
 	Deleted bool
 }
 
+func (v *Value) Copy() *Value {
+	return &Value{
+		Key:     v.Key,
+		Value:   v.Value,
+		Deleted: v.Deleted,
+	}
+}
+
 // Get 反序列化元素中的值
 func Get[T any](v *Value) (T, error) {
 	var value T

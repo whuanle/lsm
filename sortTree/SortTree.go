@@ -86,14 +86,14 @@ func (tree *Tree) Set(key string, value []byte) (oldValue kv.Value, hasOld bool)
 	for current != nil {
 		// 如果已经存在键，则替换值
 		if key == current.KV.Key {
+			oldKV := current.KV.Copy()
 			current.KV.Value = value
-			isDeleted := current.KV.Deleted
 			current.KV.Deleted = false
 			// 返回旧值
-			if isDeleted {
+			if oldKV.Deleted {
 				return kv.Value{}, false
 			} else {
-				return current.KV, true
+				return *oldKV, true
 			}
 		}
 		// 要插入左边
@@ -117,7 +117,7 @@ func (tree *Tree) Set(key string, value []byte) (oldValue kv.Value, hasOld bool)
 			current = current.Right
 		}
 	}
-	tree.count++
+	log.Fatalf("The tree fail to Set value, key: %s, value: %v", key, value)
 	return kv.Value{}, false
 }
 
@@ -139,14 +139,22 @@ func (tree *Tree) Delete(key string) (oldValue kv.Value, hasOld bool) {
 	}
 
 	currentNode := tree.root
+	if currentNode == nil {
+		tree.root = newNode
+		return kv.Value{}, false
+	}
+
 	for currentNode != nil {
 		if key == currentNode.KV.Key {
 			// 存在且未被删除
 			if currentNode.KV.Deleted == false {
+				oldKV := currentNode.KV.Copy()
 				currentNode.KV.Value = nil
 				currentNode.KV.Deleted = true
+				// count 应该是统计当前树中存在的有效节点，但是如果删除一个不存在的key，这个count会计算错误
+				// 应该要在添加删除Node的时候count增加一下来保证count数量正确
 				tree.count--
-				return currentNode.KV, true
+				return *oldKV, true
 			} else { // 已被删除过
 				return kv.Value{}, false
 			}
@@ -156,6 +164,7 @@ func (tree *Tree) Delete(key string) (oldValue kv.Value, hasOld bool) {
 			// 如果不存在此 key，则插入一个删除标记
 			if currentNode.Left == nil {
 				currentNode.Left = newNode
+				tree.count++
 			}
 			// 继续对比下一层
 			currentNode = currentNode.Left
@@ -163,11 +172,13 @@ func (tree *Tree) Delete(key string) (oldValue kv.Value, hasOld bool) {
 			// 如果不存在此 key，则插入一个删除标记
 			if currentNode.Right == nil {
 				currentNode.Right = newNode
+				tree.count++
 			}
 			// 继续对比下一层
 			currentNode = currentNode.Right
 		}
 	}
+	log.Fatalf("The tree fail to delete key, key: %s", key)
 	return kv.Value{}, false
 }
 
@@ -179,9 +190,6 @@ func (tree *Tree) GetValues() []kv.Value {
 	// 使用栈，而非递归，栈使用了切片，可以自动扩展大小，不必担心栈满
 	stack := InitStack(tree.count / 2)
 	values := make([]kv.Value, 0)
-
-	tree.rWLock.RLock()
-	defer tree.rWLock.RUnlock()
 
 	// 从小到大获取树的元素
 	currentNode := tree.root
