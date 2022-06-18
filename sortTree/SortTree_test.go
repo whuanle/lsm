@@ -2,14 +2,24 @@ package sortTree
 
 import (
 	"github.com/whuanle/lsm/kv"
+	"reflect"
 	"testing"
 )
 
 func Test_SortTree_Insert(t *testing.T) {
 	tree := &Tree{}
+	tree.Init()
 	_, hasOld := tree.Set("a", []byte{1, 2, 3})
 	if hasOld == true {
 		t.Error(hasOld)
+	}
+
+	oldKV, hasOld := tree.Set("a", []byte{2, 3, 4})
+	if !hasOld {
+		t.Error("fail to test the set function, the 'hasOld' should be true")
+	}
+	if !reflect.DeepEqual(oldKV.Value, []byte{1, 2, 3}) {
+		t.Error("fail to test the set function, the 'oldKV' is invalid")
 	}
 
 	count := tree.GetCount()
@@ -26,6 +36,7 @@ func Test_SortTree_Insert(t *testing.T) {
 	}
 
 	tree.Delete("a")
+	tree.Delete("a")
 
 	count = tree.GetCount()
 	if count != 2 {
@@ -33,7 +44,7 @@ func Test_SortTree_Insert(t *testing.T) {
 	}
 
 	data, success := tree.Search("a")
-	if success != kv.Success {
+	if success != kv.Deleted {
 		t.Error(success)
 	}
 
