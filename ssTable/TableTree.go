@@ -3,9 +3,22 @@ package ssTable
 import (
 	"fmt"
 	"github.com/whuanle/lsm/kv"
-	"strconv"
-	"strings"
+	"sync"
 )
+
+// TableTree 树
+type TableTree struct {
+	levels []*tableNode
+	// 用于避免进行插入或压缩、删除 SSTable 时发生冲突
+	lock *sync.RWMutex
+}
+
+// 链表，表示每一层的 SSTable
+type tableNode struct {
+	index int
+	table *SSTable
+	next  *tableNode
+}
 
 // Search 从所有 SSTable 表中查找数据
 func (tree *TableTree) Search(key string) (kv.Value, kv.SearchResult) {
@@ -37,13 +50,12 @@ func (tree *TableTree) Search(key string) (kv.Value, kv.SearchResult) {
 // 获取一层中的 SSTable 的最大序号
 func (tree *TableTree) getMaxIndex(level int) int {
 	node := tree.levels[level]
+	index := 0
 	for node != nil {
-		if node.next == nil {
-			return node.index
-		}
+		index = node.index
 		node = node.next
 	}
-	return 0
+	return index
 }
 
 // 获取该层有多少个 SSTable
@@ -58,21 +70,10 @@ func (tree *TableTree) getCount(level int) int {
 }
 
 // 获取一个 db 文件所代表的 SSTable 的所在层数和索引
-func getLevel(name string) (level int, index int) {
-	// 0.1.db
-	strs := strings.Split(name, ".")
-	if len(strs) != 3 {
-		panic(fmt.Sprint("Incorrect data file name:", name))
+func getLevel(name string) (level int, index int, err error) {
+	n, err := fmt.Sscanf(name, "%d.%d.db", &level, &index)
+	if n != 2 || err != nil {
+		return 0, 0, fmt.Errorf("incorrect data file name: %q", name)
 	}
-	tmp, err := strconv.ParseInt(strs[0], 10, 64)
-	if err != nil {
-		panic(fmt.Sprint("Incorrect data file name:", name))
-	}
-	level = int(tmp)
-	tmp, err = strconv.ParseInt(strs[1], 10, 64)
-	if err != nil {
-		panic(fmt.Sprint("Incorrect data file name:", name))
-	}
-	index = int(tmp)
-	return level, index
+	return level, index, nil
 }

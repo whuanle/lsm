@@ -24,20 +24,6 @@ type SSTable struct {
 	*/
 }
 
-// TableTree 树
-type TableTree struct {
-	levels []*tableNode
-	// 用于避免进行插入或压缩、删除 SSTable 时发生冲突
-	lock *sync.RWMutex
-}
-
-// 链表，表示每一层的 SSTable
-type tableNode struct {
-	index int
-	table *SSTable
-	next  *tableNode
-}
-
 func (table *SSTable) Init(path string) {
 	table.filePath = path
 	table.lock = &sync.Mutex{}

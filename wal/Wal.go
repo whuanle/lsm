@@ -90,7 +90,7 @@ func (w *Wal) loadToMemory() *sortTree.Tree {
 		}
 		// 将元素的所有字节读取出来，并还原为 kv.Value
 		index += 8
-		dataArea := data[index:(index + int64(dataLen))]
+		dataArea := data[index:(index + dataLen)]
 		var value kv.Value
 		err = json.Unmarshal(dataArea, &value)
 		if err != nil {
@@ -104,7 +104,7 @@ func (w *Wal) loadToMemory() *sortTree.Tree {
 			tree.Set(value.Key, value.Value)
 		}
 		// 读取下一个元素
-		index = index + int64(dataLen)
+		index = index + dataLen
 	}
 	return tree
 }

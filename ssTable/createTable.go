@@ -19,7 +19,7 @@ func (tree *TableTree) CreateNewTable(values []kv.Value) {
 // 创建新的 SSTable，插入到合适的层
 func (tree *TableTree) createTable(values []kv.Value, level int) *SSTable {
 	// 生成数据区
-	keys := make([]string, 0)
+	keys := make([]string, 0, len(values))
 	positions := make(map[string]Position)
 	dataArea := make([]byte, 0)
 	for _, value := range values {

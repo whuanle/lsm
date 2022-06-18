@@ -19,7 +19,10 @@ func (tree *TableTree) loadDbFile(path string) {
 		log.Println("Loading the ", path, ",Consumption of time : ", elapse)
 	}()
 
-	level, index := getLevel(filepath.Base(path))
+	level, index, err := getLevel(filepath.Base(path))
+	if err != nil {
+		return
+	}
 	table := &SSTable{}
 	table.Init(path)
 	newNode := &tableNode{
@@ -39,20 +42,13 @@ func (tree *TableTree) loadDbFile(path string) {
 		return
 	}
 
-	lastNode := currentNode
 	// 将 SSTable 插入到合适的位置
 	for currentNode != nil {
-		if newNode.index < currentNode.index {
-			lastNode.next = newNode
-			newNode.next = currentNode
+		if currentNode.next == nil || newNode.index < currentNode.next.index {
+			newNode.next = currentNode.next
+			currentNode.next = newNode
 			break
 		} else {
-			if currentNode.next == nil || newNode.index < currentNode.next.index {
-				newNode.next = currentNode.next
-				currentNode.next = newNode
-				break
-			}
-			lastNode = currentNode
 			currentNode = currentNode.next
 		}
 	}
@@ -98,7 +94,7 @@ func (table *SSTable) loadSparseIndex() {
 	_, _ = table.f.Seek(0, 0)
 
 	// 先排序
-	keys := make([]string, 0)
+	keys := make([]string, 0, len(table.sparseIndex))
 	for k := range table.sparseIndex {
 		keys = append(keys, k)
 	}
