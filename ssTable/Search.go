@@ -12,7 +12,7 @@ func (table *SSTable) Search(key string) (value kv.Value, result kv.SearchResult
 	defer table.lock.Unlock()
 
 	// 元素定位
-	var position Position = Position{
+	var position = Position{
 		Start: -1,
 	}
 	l := 0
@@ -20,7 +20,7 @@ func (table *SSTable) Search(key string) (value kv.Value, result kv.SearchResult
 
 	// 二分查找法，查找 key 是否存在
 	for l <= r {
-		mid := int((l + r) / 2)
+		mid := (l + r) / 2
 		if table.sortIndex[mid] == key {
 			// 获取元素定位
 			position = table.sparseIndex[key]
