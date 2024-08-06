@@ -46,14 +46,15 @@ func testResetWalBug() {
 		}
 	}()
 	lsm.Start(config.Config{
-		DataDir:       "./data",
-		Level0Size:    100,
-		PartSize:      4,
-		Threshold:     9,
-		CheckInterval: 2,
+		DataDir:          "./data",
+		Level0Size:       100,
+		PartSize:         4,
+		Threshold:        9,
+		CheckInterval:    2,
+		CompressInterval: 2,
 	})
-	// 注释掉以下五行代码，再次运行以检验wal中新数据是否被删除
-	// insert 10 to start compress
+	//注释掉以下五行代码，再次运行以检验wal中新数据是否被删除
+	//insert 10 to start compress
 	insertValuesByCount(10, 10)
 	// wait for compress and insert kvs when compress begins
 	time.Sleep(2 * time.Second)

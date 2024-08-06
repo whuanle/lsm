@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"github.com/whuanle/lsm/kv"
 	"github.com/whuanle/lsm/sortTree"
 	"log"
@@ -19,15 +20,16 @@ type Wal struct {
 	lock sync.Locker
 }
 
-func (w *Wal) Init(dir string) *sortTree.Tree {
+func (w *Wal) Init(dir string) {
 	log.Println("Loading wal.log...")
 	start := time.Now()
 	defer func() {
 		elapse := time.Since(start)
 		log.Println("Loaded wal.log,Consumption of time : ", elapse)
 	}()
-
-	walPath := path.Join(dir, "wal.log")
+	uuidStr := time.Now().Format("2006-01-02-15-04-05")
+	walPath := path.Join(dir, fmt.Sprintf("%s_wal.log", uuidStr))
+	log.Printf("init wal.log: walPath: %s\n", walPath)
 	f, err := os.OpenFile(walPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		log.Println("The wal.log file cannot be created")
@@ -36,22 +38,34 @@ func (w *Wal) Init(dir string) *sortTree.Tree {
 	w.f = f
 	w.path = walPath
 	w.lock = &sync.Mutex{}
-	return w.loadToMemory()
 }
 
+func (w *Wal) LoadFromFile(path string, tree *sortTree.Tree) *sortTree.Tree {
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		log.Println("The wal.log file cannot be created")
+		panic(err)
+	}
+	w.f = f
+	w.path = path
+	w.lock = &sync.Mutex{}
+	return w.LoadToMemory(tree)
+}
+
+// LoadToMemory 会返回一个具有所有节点的Tree，并把节点的数据加载到参数的tree中
 // 通过 wal.log 文件初始化 Wal，加载文件中的 WalF 到内存
-func (w *Wal) loadToMemory() *sortTree.Tree {
+func (w *Wal) LoadToMemory(tree *sortTree.Tree) *sortTree.Tree {
 	w.lock.Lock()
 	defer w.lock.Unlock()
 
+	preTree := &sortTree.Tree{}
+	preTree.Init()
 	info, _ := os.Stat(w.path)
 	size := info.Size()
-	tree := &sortTree.Tree{}
-	tree.Init()
 
 	// 空的 wal.log
 	if size == 0 {
-		return tree
+		return preTree
 	}
 
 	_, err := w.f.Seek(0, 0)
@@ -100,13 +114,15 @@ func (w *Wal) loadToMemory() *sortTree.Tree {
 
 		if value.Deleted {
 			tree.Delete(value.Key)
+			preTree.Delete(value.Key)
 		} else {
 			tree.Set(value.Key, value.Value)
+			preTree.Set(value.Key, value.Value)
 		}
 		// 读取下一个元素
 		index = index + dataLen
 	}
-	return tree
+	return preTree
 }
 
 // 记录日志
@@ -154,4 +170,15 @@ func (w *Wal) Reset() {
 		panic(err)
 	}
 	w.f = f
+}
+
+func (w *Wal) DeleteFile() {
+	w.lock.Lock()
+	defer w.lock.Unlock()
+	log.Printf("Deleting the wal.log file: %s\n", w.path)
+	err := w.f.Close()
+	if err != nil {
+		panic(err)
+	}
+	_ = os.Remove(w.path)
 }
