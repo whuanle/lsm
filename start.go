@@ -2,9 +2,7 @@ package lsm
 
 import (
 	"github.com/whuanle/lsm/config"
-	"github.com/whuanle/lsm/sortTree"
 	"github.com/whuanle/lsm/ssTable"
-	"github.com/whuanle/lsm/wal"
 	"log"
 	"os"
 )
@@ -29,14 +27,15 @@ func Start(con config.Config) {
 	database.TableTree.Check()
 	// 启动后台线程
 	go Check()
+	go CompressMemory()
 }
 
 // 初始化 Database，从磁盘文件中还原 SSTable、WalF、内存表等
 func initDatabase(dir string) {
 	database = &Database{
-		MemoryTree: &sortTree.Tree{},
-		Wal:        &wal.Wal{},
-		TableTree:  &ssTable.TableTree{},
+		MemTable:  &MemTable{},
+		iMemTable: &ReadOnlyMemTables{},
+		TableTree: &ssTable.TableTree{},
 	}
 	// 从磁盘文件中恢复数据
 	// 如果目录不存在，则为空数据库
@@ -48,11 +47,11 @@ func initDatabase(dir string) {
 			panic(err)
 		}
 	}
-	// 从数据目录中，加载 WalF、database 文件
-	// 非空数据库，则开始恢复数据，加载 WalF 和 SSTable 文件
-	memoryTree := database.Wal.Init(dir)
-
-	database.MemoryTree = memoryTree
+	database.iMemTable.Init()
+	database.MemTable.InitMemTree()
+	log.Println("Loading all wal.log...")
+	database.loadAllWalFiles(dir)
+	database.MemTable.InitWal(dir)
 	log.Println("Loading database...")
 	database.TableTree.Init(dir)
 }

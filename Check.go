@@ -9,7 +9,7 @@ import (
 func Check() {
 	con := config.GetConfig()
 	ticker := time.Tick(time.Duration(con.CheckInterval) * time.Second)
-	for _ = range ticker {
+	for range ticker {
 		log.Println("Performing background checks...")
 		// 检查内存
 		checkMemory()
@@ -20,15 +20,25 @@ func Check() {
 
 func checkMemory() {
 	con := config.GetConfig()
-	count := database.MemoryTree.GetCount()
+	count := database.MemTable.MemoryTree.GetCount()
 	if count < con.Threshold {
 		return
 	}
 	// 交互内存
 	log.Println("Compressing memory")
-	tmpTree := database.MemoryTree.Swap()
+	database.Swap()
+}
 
-	// 将内存表存储到 SsTable 中
-	database.TableTree.CreateNewTable(tmpTree.GetValues())
-	database.Wal.Reset()
+// CompressMemory 会监听iMemTable，当iMemTable有数据的时候就进行压缩
+func CompressMemory() {
+	con := config.GetConfig()
+	ticker := time.Tick(time.Duration(con.CompressInterval) * time.Second)
+	for range ticker {
+		for database.iMemTable.Getlen() != 0 {
+			log.Println("Compressing iMemTable")
+			preTable := database.iMemTable.Get()
+			database.TableTree.CreateNewTable(preTable.MemoryTree.GetValues())
+			preTable.Wal.DeleteFile()
+		}
+	}
 }
