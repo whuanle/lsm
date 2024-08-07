@@ -11,7 +11,11 @@ func Get[T any](key string) (T, bool) {
 	log.Print("Get ", key)
 	// 先查内存表
 	value, result := database.MemTable.Search(key)
-
+	if result == kv.Success {
+		return getInstance[T](value.Value)
+	}
+	// 查找iMemTable
+	value, result = database.iMemTable.Search(key)
 	if result == kv.Success {
 		return getInstance[T](value.Value)
 	}

@@ -36,7 +36,7 @@ func CompressMemory() {
 	for range ticker {
 		for database.iMemTable.Getlen() != 0 {
 			log.Println("Compressing iMemTable")
-			preTable := database.iMemTable.Get()
+			preTable := database.iMemTable.GetTable()
 			database.TableTree.CreateNewTable(preTable.MemoryTree.GetValues())
 			preTable.Wal.DeleteFile()
 		}
