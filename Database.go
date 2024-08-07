@@ -1,8 +1,8 @@
 package lsm
 
 import (
-	"github.com/whuanle/lsm/ssTable"
-	"github.com/whuanle/lsm/wal"
+	"github.com/huiming23344/lsm/ssTable"
+	"github.com/huiming23344/lsm/wal"
 	"log"
 	"os"
 	"path"

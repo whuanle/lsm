@@ -1,7 +1,7 @@
 package lsm
 
 import (
-	"github.com/whuanle/lsm/config"
+	"github.com/huiming23344/lsm/config"
 	"log"
 	"time"
 )

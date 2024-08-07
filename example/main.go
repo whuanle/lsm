@@ -3,8 +3,8 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"github.com/whuanle/lsm"
-	"github.com/whuanle/lsm/config"
+	"github.com/huiming23344/lsm"
+	"github.com/huiming23344/lsm/config"
 	"os"
 	"time"
 )

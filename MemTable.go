@@ -1,10 +1,10 @@
 package lsm
 
 import (
-	"github.com/whuanle/lsm/config"
-	"github.com/whuanle/lsm/kv"
-	"github.com/whuanle/lsm/sortTree"
-	"github.com/whuanle/lsm/wal"
+	"github.com/huiming23344/lsm/config"
+	"github.com/huiming23344/lsm/kv"
+	"github.com/huiming23344/lsm/sortTree"
+	"github.com/huiming23344/lsm/wal"
 	"log"
 	"sync"
 )
