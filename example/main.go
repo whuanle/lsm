@@ -3,8 +3,8 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"github.com/whuanle/lsm"
-	"github.com/whuanle/lsm/config"
+	"github.com/huiming23344/lsm"
+	"github.com/huiming23344/lsm/config"
 	"os"
 	"time"
 )
@@ -17,23 +17,7 @@ type TestValue struct {
 }
 
 func main() {
-	defer func() {
-		r := recover()
-		if r != nil {
-			fmt.Println(r)
-			inputReader := bufio.NewReader(os.Stdin)
-			_, _ = inputReader.ReadString('\n')
-		}
-	}()
-	lsm.Start(config.Config{
-		DataDir:       `E:\项目\lsm数据测试目录`,
-		Level0Size:    100,
-		PartSize:      4,
-		Threshold:     3000,
-		CheckInterval: 3,
-	})
-	query()
-
+	testResetWalBug()
 }
 
 func testResetWalBug() {

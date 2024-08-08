@@ -1,8 +1,8 @@
 package lsm
 
 import (
-	"github.com/whuanle/lsm/config"
-	"github.com/whuanle/lsm/ssTable"
+	"github.com/huiming23344/lsm/config"
+	"github.com/huiming23344/lsm/ssTable"
 	"log"
 	"os"
 )
@@ -41,7 +41,7 @@ func initDatabase(dir string) {
 	// 如果目录不存在，则为空数据库
 	if _, err := os.Stat(dir); err != nil {
 		log.Printf("The %s directory does not exist. The directory is being created\r\n", dir)
-		err := os.Mkdir(dir, 0666)
+		err := os.MkdirAll(dir, 0700)
 		if err != nil {
 			log.Println("Failed to create the database directory")
 			panic(err)
