@@ -1,3 +1,3 @@
-module github.com/huiming23344/lsm
+module LSM
 
-go 1.18
+go 1.24

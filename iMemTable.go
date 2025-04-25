@@ -1,12 +1,11 @@
-package lsm
+package LSM
 
 import (
-	"github.com/huiming23344/lsm/kv"
+	"LSM/kv"
 	"sync"
 )
 
 type ReadOnlyMemTables struct {
-	// 只读内存表
 	readonlyTable []*MemTable
 	lock          *sync.RWMutex
 }
@@ -15,27 +14,23 @@ func (r *ReadOnlyMemTables) Init() {
 	r.readonlyTable = make([]*MemTable, 0)
 	r.lock = &sync.RWMutex{}
 }
-
 func (r *ReadOnlyMemTables) Getlen() int {
 	r.lock.Lock()
-	r.lock.Unlock()
+	defer r.lock.Unlock()
 	return len(r.readonlyTable)
 }
-
 func (r *ReadOnlyMemTables) AddTable(table *MemTable) {
 	r.lock.Lock()
+	defer r.lock.Unlock()
 	r.readonlyTable = append(r.readonlyTable, table)
-	r.lock.Unlock()
 }
-
-func (r *ReadOnlyMemTables) GetTable() *MemTable {
+func (r *ReadOnlyMemTables) PopTable() *MemTable {
 	r.lock.Lock()
 	defer r.lock.Unlock()
 	table := r.readonlyTable[0]
 	r.readonlyTable = r.readonlyTable[1:]
 	return table
 }
-
 func (r *ReadOnlyMemTables) Search(key string) (kv.Value, kv.SearchResult) {
 	r.lock.RLock()
 	defer r.lock.RUnlock()
@@ -45,6 +40,5 @@ func (r *ReadOnlyMemTables) Search(key string) (kv.Value, kv.SearchResult) {
 			return value, result
 		}
 	}
-	var nilV kv.Value
-	return nilV, kv.None
+	return kv.Value{}, kv.NotFind
 }
