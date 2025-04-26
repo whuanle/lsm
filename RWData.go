@@ -1,28 +1,23 @@
-package lsm
+package LSM
 
 import (
+	"LSM/kv"
 	"encoding/json"
-	"github.com/huiming23344/lsm/kv"
 	"log"
 )
 
-// Get 获取一个元素
 func Get[T any](key string) (T, bool) {
 	log.Print("Get ", key)
-	// 先查内存表
 	value, result := database.MemTable.Search(key)
 	if result == kv.Success {
 		return getInstance[T](value.Value)
 	}
-	// 查找iMemTable
 	value, result = database.iMemTable.Search(key)
 	if result == kv.Success {
 		return getInstance[T](value.Value)
 	}
-
-	// 查 SsTable 文件
 	if database.TableTree != nil {
-		value, result := database.TableTree.Search(key)
+		value, result = database.TableTree.Search(key)
 		if result == kv.Success {
 			return getInstance[T](value.Value)
 		}
@@ -30,16 +25,13 @@ func Get[T any](key string) (T, bool) {
 	var nilV T
 	return nilV, false
 }
-
-// Set 插入元素
 func Set[T any](key string, value T) bool {
-	log.Print("Insert ", key, ",")
+	//log.Print("Set ", key, value)
 	data, err := kv.Convert(value)
 	if err != nil {
 		log.Println(err)
 		return false
 	}
-
 	_, _ = database.MemTable.Set(key, data)
 	return true
 }
@@ -55,14 +47,10 @@ func DeleteAndGet[T any](key string) (T, bool) {
 	var nilV T
 	return nilV, false
 }
-
-// Delete 删除元素
 func Delete[T any](key string) {
 	log.Print("Delete ", key)
 	database.MemTable.Delete(key)
 }
-
-// 将字节数组转为类型对象
 func getInstance[T any](data []byte) (T, bool) {
 	var value T
 	err := json.Unmarshal(data, &value)

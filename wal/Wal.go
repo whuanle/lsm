@@ -1,12 +1,14 @@
 package wal
 
 import (
+	"LSM/kv"
+	"LSM/orderTable"
+	"LSM/orderTable/skipList"
+	"LSM/orderTable/sortTree"
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"github.com/huiming23344/lsm/kv"
-	"github.com/huiming23344/lsm/sortTree"
 	"log"
 	"os"
 	"path"
@@ -24,13 +26,13 @@ func (w *Wal) Init(dir string) {
 	log.Println("Loading wal.log...")
 	start := time.Now()
 	defer func() {
-		elapse := time.Since(start)
-		log.Println("Loaded wal.log,Consumption of time : ", elapse)
+		elapsed := time.Since(start)
+		log.Println("Loaded wal.log,Consumption of time :", elapsed)
 	}()
-	uuidStr := time.Now().Format("2006-01-02-15-04-05")
+	uuidStr := time.Now().Format("2006-01-02-15-04-05.000")
 	walPath := path.Join(dir, fmt.Sprintf("%s_wal.log", uuidStr))
 	log.Printf("init wal.log: walPath: %s\n", walPath)
-	f, err := os.OpenFile(walPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	f, err := os.OpenFile(walPath, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
 		log.Println("The wal.log file cannot be created")
 		panic(err)
@@ -39,123 +41,105 @@ func (w *Wal) Init(dir string) {
 	w.path = walPath
 	w.lock = &sync.Mutex{}
 }
-
-func (w *Wal) LoadFromFile(path string, tree *sortTree.Tree) *sortTree.Tree {
-	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+func (w *Wal) LoadFromFile(path string, table orderTable.OrderInterface) orderTable.OrderInterface {
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
-		log.Println("The wal.log file cannot be created")
+		log.Println("The wal.log file cannot be opened")
 		panic(err)
 	}
 	w.f = f
 	w.path = path
 	w.lock = &sync.Mutex{}
-	return w.LoadToMemory(tree)
+	return w.LoadToMemory(table)
 }
-
-// LoadToMemory 会返回一个具有所有节点的Tree，并把节点的数据加载到参数的tree中
-// 通过 wal.log 文件初始化 Wal，加载文件中的 WalF 到内存
-func (w *Wal) LoadToMemory(tree *sortTree.Tree) *sortTree.Tree {
+func (w *Wal) LoadToMemory(table orderTable.OrderInterface) orderTable.OrderInterface {
 	w.lock.Lock()
 	defer w.lock.Unlock()
-
-	preTree := &sortTree.Tree{}
-	preTree.Init()
+	var preTable orderTable.OrderInterface
+	if _, ok := table.(*sortTree.Tree); ok {
+		preTable = &sortTree.Tree{}
+	} else if _, ok := table.(*skipList.SkipList); ok {
+		preTable = &skipList.SkipList{}
+	}
+	//preTree := &sortTree.Tree{}
+	preTable.Init()
 	info, _ := os.Stat(w.path)
 	size := info.Size()
-
-	// 空的 wal.log
 	if size == 0 {
-		return preTree
+		return preTable
 	}
-
 	_, err := w.f.Seek(0, 0)
 	if err != nil {
-		log.Println("Failed to open the wal.log")
+		log.Println("The wal.log file cannot be opened")
 		panic(err)
 	}
-	// 文件指针移动到最后，以便追加
 	defer func(f *os.File, offset int64, whence int) {
-		_, err := f.Seek(offset, whence)
+		_, err = f.Seek(offset, whence)
 		if err != nil {
-			log.Println("Failed to open the wal.log")
+			log.Println("The wal.log file cannot be opened")
 			panic(err)
 		}
 	}(w.f, size-1, 0)
-
-	// 将文件内容全部读取到内存
 	data := make([]byte, size)
 	_, err = w.f.Read(data)
 	if err != nil {
-		log.Println("Failed to open the wal.log")
+		log.Println("The wal.log file cannot be opened")
 		panic(err)
 	}
-
-	dataLen := int64(0) // 元素的字节数量
-	index := int64(0)   // 当前索引
+	dataLen := int64(0)
+	index := int64(0)
 	for index < size {
-		// 前面的 8 个字节表示元素的长度
 		indexData := data[index:(index + 8)]
-		// 获取元素的字节长度
 		buf := bytes.NewBuffer(indexData)
-		err := binary.Read(buf, binary.LittleEndian, &dataLen)
+		err = binary.Read(buf, binary.LittleEndian, &dataLen)
 		if err != nil {
-			log.Println("Failed to open the wal.log")
+			log.Println("The wal.log file cannot be opened")
 			panic(err)
 		}
-		// 将元素的所有字节读取出来，并还原为 kv.Value
 		index += 8
 		dataArea := data[index:(index + dataLen)]
 		var value kv.Value
 		err = json.Unmarshal(dataArea, &value)
 		if err != nil {
-			log.Println("Failed to open the wal.log")
+			log.Println("The wal.log file cannot be opened")
 			panic(err)
 		}
-
-		if value.Deleted {
-			tree.Delete(value.Key)
-			preTree.Delete(value.Key)
+		if value.Delete {
+			table.Delete(value.Key)
+			preTable.Delete(value.Key)
 		} else {
-			tree.Set(value.Key, value.Value)
-			preTree.Set(value.Key, value.Value)
+			table.Set(value.Key, value.Value)
+			preTable.Set(value.Key, value.Value)
 		}
-		// 读取下一个元素
-		index = index + dataLen
+		index += dataLen
 	}
-	return preTree
+	return preTable
 }
-
-// 记录日志
 func (w *Wal) Write(value kv.Value) {
 	w.lock.Lock()
 	defer w.lock.Unlock()
-
-	if value.Deleted {
+	if value.Delete {
 		log.Println("wal.log:	delete ", value.Key)
 	} else {
-		log.Println("wal.log:	insert ", value.Key)
+		//log.Println("wal.log:	insert ", value.Key)
 	}
-
 	data, _ := json.Marshal(value)
 	err := binary.Write(w.f, binary.LittleEndian, int64(len(data)))
 	if err != nil {
-		log.Println("Failed to write the wal.log")
+		log.Println("The wal.log file cannot be written")
 		panic(err)
 	}
-
 	err = binary.Write(w.f, binary.LittleEndian, data)
 	if err != nil {
 		log.Println("Failed to write the wal.log")
 		panic(err)
 	}
 }
-
 func (w *Wal) Reset() {
 	w.lock.Lock()
 	defer w.lock.Unlock()
 
-	log.Println("Resetting the wal.log file")
-
+	log.Println("wal.log:	reset")
 	err := w.f.Close()
 	if err != nil {
 		panic(err)
@@ -165,13 +149,12 @@ func (w *Wal) Reset() {
 	if err != nil {
 		panic(err)
 	}
-	f, err := os.OpenFile(w.path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	f, err := os.OpenFile(w.path, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
 		panic(err)
 	}
 	w.f = f
 }
-
 func (w *Wal) DeleteFile() {
 	w.lock.Lock()
 	defer w.lock.Unlock()
@@ -180,5 +163,9 @@ func (w *Wal) DeleteFile() {
 	if err != nil {
 		panic(err)
 	}
-	_ = os.Remove(w.path)
+	err = os.Remove(w.path)
+	if err != nil {
+		log.Println("Failed to delete the wal.log")
+		panic(err)
+	}
 }

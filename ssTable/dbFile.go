@@ -6,33 +6,27 @@ import (
 	"os"
 )
 
-/*
-管理 SSTable 的磁盘文件
-*/
-
-// GetDbSize 获取 .db 数据文件大小
 func (table *SSTable) GetDbSize() int64 {
 	info, err := os.Stat(table.filePath)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		panic(err)
 	}
 	return info.Size()
 }
 
-// GetLevelSize 获取指定层的 SSTable 总大小
 func (tree *TableTree) GetLevelSize(level int) int64 {
-	var size int64
-	node := tree.levels[level]
-	for node != nil {
-		size += node.table.GetDbSize()
-		node = node.next
+	var add int64
+	add = 0
+	currentNode := tree.levels[level]
+	for currentNode != nil {
+		add += currentNode.table.GetDbSize()
+		currentNode = currentNode.next
 	}
-	return size
+	return add
 }
-
-// 将数据写入文件
-func writeDataToFile(filePath string, dataArea []byte, indexArea []byte, meta MetaInfo) {
-	f, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE, 0666)
+func writeDataToFile(filename string, dataArea []byte, indexArea []byte, meta MetaInfo) {
+	f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE, 0666)
 	if err != nil {
 		log.Fatal(" error create file,", err)
 	}

@@ -1,14 +1,14 @@
-package lsm
+package LSM
 
 import (
-	"github.com/huiming23344/lsm/config"
+	"LSM/config"
 	"log"
 	"time"
 )
 
 func Check() {
-	con := config.GetConfig()
-	ticker := time.Tick(time.Duration(con.CheckInterval) * time.Second)
+	//con := config.GetConfig()
+	ticker := time.Tick(50 * time.Millisecond)
 	for range ticker {
 		log.Println("Performing background checks...")
 		// 检查内存
@@ -20,7 +20,7 @@ func Check() {
 
 func checkMemory() {
 	con := config.GetConfig()
-	count := database.MemTable.MemoryTree.GetCount()
+	count := database.MemTable.OrderTable.GetCount()
 	if count < con.Threshold {
 		return
 	}
@@ -32,12 +32,13 @@ func checkMemory() {
 // CompressMemory 会监听iMemTable，当iMemTable有数据的时候就进行压缩
 func CompressMemory() {
 	con := config.GetConfig()
-	ticker := time.Tick(time.Duration(con.CompressInterval) * time.Second)
+	ticker := time.Tick(time.Duration(con.CompressInterval) * time.Millisecond)
 	for range ticker {
+		//fmt.Println(database.iMemTable.Getlen())
 		for database.iMemTable.Getlen() != 0 {
 			log.Println("Compressing iMemTable")
-			preTable := database.iMemTable.GetTable()
-			database.TableTree.CreateNewTable(preTable.MemoryTree.GetValues())
+			preTable := database.iMemTable.PopTable()
+			database.TableTree.CreatNewTable(preTable.OrderTable.GetValues())
 			preTable.Wal.DeleteFile()
 		}
 	}
