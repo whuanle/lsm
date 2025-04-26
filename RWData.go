@@ -1,24 +1,23 @@
-package lsm
+package LSM
 
 import (
+	"LSM/kv"
 	"encoding/json"
-	"github.com/whuanle/lsm/kv"
 	"log"
 )
 
-// Get 获取一个元素
 func Get[T any](key string) (T, bool) {
 	log.Print("Get ", key)
-	// 先查内存表
-	value, result := database.MemoryTree.Search(key)
-
+	value, result := database.MemTable.Search(key)
 	if result == kv.Success {
 		return getInstance[T](value.Value)
 	}
-
-	// 查 SsTable 文件
+	value, result = database.iMemTable.Search(key)
+	if result == kv.Success {
+		return getInstance[T](value.Value)
+	}
 	if database.TableTree != nil {
-		value, result := database.TableTree.Search(key)
+		value, result = database.TableTree.Search(key)
 		if result == kv.Success {
 			return getInstance[T](value.Value)
 		}
@@ -26,24 +25,14 @@ func Get[T any](key string) (T, bool) {
 	var nilV T
 	return nilV, false
 }
-
-// Set 插入元素
 func Set[T any](key string, value T) bool {
-	log.Print("Insert ", key, ",")
+	//log.Print("Set ", key, value)
 	data, err := kv.Convert(value)
 	if err != nil {
 		log.Println(err)
 		return false
 	}
-
-	_, _ = database.MemoryTree.Set(key, data)
-
-	// 写入 wal.log
-	database.Wal.Write(kv.Value{
-		Key:     key,
-		Value:   data,
-		Deleted: false,
-	})
+	_, _ = database.MemTable.Set(key, data)
 	return true
 }
 
@@ -51,33 +40,17 @@ func Set[T any](key string, value T) bool {
 // 返回的 bool 表示是否有旧值，不表示是否删除成功
 func DeleteAndGet[T any](key string) (T, bool) {
 	log.Print("Delete ", key)
-	value, success := database.MemoryTree.Delete(key)
-
+	value, success := database.MemTable.Delete(key)
 	if success {
-		// 写入 wal.log
-		database.Wal.Write(kv.Value{
-			Key:     key,
-			Value:   nil,
-			Deleted: true,
-		})
 		return getInstance[T](value.Value)
 	}
 	var nilV T
 	return nilV, false
 }
-
-// Delete 删除元素
 func Delete[T any](key string) {
 	log.Print("Delete ", key)
-	database.MemoryTree.Delete(key)
-	database.Wal.Write(kv.Value{
-		Key:     key,
-		Value:   nil,
-		Deleted: true,
-	})
+	database.MemTable.Delete(key)
 }
-
-// 将字节数组转为类型对象
 func getInstance[T any](data []byte) (T, bool) {
 	var value T
 	err := json.Unmarshal(data, &value)

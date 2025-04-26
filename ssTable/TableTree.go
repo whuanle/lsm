@@ -1,53 +1,92 @@
 package ssTable
 
 import (
+	"LSM/kv"
 	"fmt"
-	"github.com/whuanle/lsm/kv"
-	"strconv"
-	"strings"
+	"sync"
 )
 
-// Search 从所有 SSTable 表中查找数据
+type TableTree struct {
+	levels     []*tableNode
+	lock       *sync.RWMutex
+	levellocks []*sync.RWMutex
+}
+
+type tableNode struct {
+	index        int
+	table        *SSTable
+	next         *tableNode
+	tableNodeL   string
+	tableNodeR   string
+	needToDelete bool
+}
+
 func (tree *TableTree) Search(key string) (kv.Value, kv.SearchResult) {
 	tree.lock.RLock()
 	defer tree.lock.RUnlock()
-
-	// 遍历每一层的 SSTable
-	for _, node := range tree.levels {
-		// 整理 SSTable 列表
-		tables := make([]*SSTable, 0)
+	for level, node := range tree.levels {
+		tables := make([]*tableNode, 0)
 		for node != nil {
-			tables = append(tables, node.table)
+			tables = append(tables, node)
 			node = node.next
 		}
-		// 查找的时候要从最后一个 SSTable 开始查找
-		for i := len(tables) - 1; i >= 0; i-- {
-			value, searchResult := tables[i].Search(key)
-			// 未找到，则查找下一个 SSTable 表
-			if searchResult == kv.None {
-				continue
-			} else { // 如果找到或已被删除，则返回结果
+		if level == 0 {
+			for i := len(tables) - 1; i >= 0; i-- {
+				value, searchResult := tables[i].table.Search(key)
+				if searchResult == kv.NotFind {
+					continue
+				}
+				return value, searchResult
+			}
+		} else {
+			for i := 0; i < len(tables); i++ {
+				if tables[i].tableNodeL > key || tables[i].tableNodeR < key {
+					continue
+				}
+				value, searchResult := tables[i].table.Search(key)
+				if searchResult == kv.NotFind {
+					continue
+				}
 				return value, searchResult
 			}
 		}
 	}
-	return kv.Value{}, kv.None
+	return kv.Value{}, kv.NotFind
 }
-
-// 获取一层中的 SSTable 的最大序号
+func (tree *TableTree) Insert(table *SSTable, level int) (index int) {
+	node := tree.levels[level]
+	newNode := &tableNode{
+		table:        table,
+		next:         nil,
+		index:        0,
+		tableNodeL:   table.sortIndex[0],
+		tableNodeR:   table.sortIndex[len(table.sortIndex)-1],
+		needToDelete: false,
+	}
+	if node == nil {
+		tree.levels[level] = newNode
+	} else {
+		for node != nil {
+			if node.next == nil {
+				node.next = newNode
+				newNode.index = node.index + 1
+				break
+			}
+			node = node.next
+		}
+	}
+	return newNode.index
+}
 func (tree *TableTree) getMaxIndex(level int) int {
 	node := tree.levels[level]
+	index := 0
 	for node != nil {
-		if node.next == nil {
-			return node.index
-		}
+		index = node.index
 		node = node.next
 	}
-	return 0
+	return index
 }
-
-// 获取该层有多少个 SSTable
-func (tree *TableTree) getCount(level int) int {
+func (tree *TableTree) getLevelCount(level int) int {
 	node := tree.levels[level]
 	count := 0
 	for node != nil {
@@ -56,23 +95,10 @@ func (tree *TableTree) getCount(level int) int {
 	}
 	return count
 }
-
-// 获取一个 db 文件所代表的 SSTable 的所在层数和索引
-func getLevel(name string) (level int, index int) {
-	// 0.1.db
-	strs := strings.Split(name, ".")
-	if len(strs) != 3 {
-		panic(fmt.Sprint("Incorrect data file name:", name))
+func getLevel(name string) (level int, index int, err error) {
+	n, err := fmt.Sscanf(name, "%d.%d.db", &level, &index)
+	if n != 2 && err != nil {
+		return 0, 0, fmt.Errorf("incorrect data file name: %q", name)
 	}
-	tmp, err := strconv.ParseInt(strs[0], 10, 64)
-	if err != nil {
-		panic(fmt.Sprint("Incorrect data file name:", name))
-	}
-	level = int(tmp)
-	tmp, err = strconv.ParseInt(strs[1], 10, 64)
-	if err != nil {
-		panic(fmt.Sprint("Incorrect data file name:", name))
-	}
-	index = int(tmp)
-	return level, index
+	return level, index, nil
 }

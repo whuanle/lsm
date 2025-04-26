@@ -1,15 +1,15 @@
-package lsm
+package LSM
 
 import (
-	"github.com/whuanle/lsm/config"
+	"LSM/config"
 	"log"
 	"time"
 )
 
 func Check() {
-	con := config.GetConfig()
-	for {
-		time.Sleep(time.Duration(con.CheckInterval) * time.Second)
+	//con := config.GetConfig()
+	ticker := time.Tick(50 * time.Millisecond)
+	for range ticker {
 		log.Println("Performing background checks...")
 		// 检查内存
 		checkMemory()
@@ -20,15 +20,26 @@ func Check() {
 
 func checkMemory() {
 	con := config.GetConfig()
-	count := database.MemoryTree.GetCount()
+	count := database.MemTable.OrderTable.GetCount()
 	if count < con.Threshold {
 		return
 	}
 	// 交互内存
 	log.Println("Compressing memory")
-	tmpTree := database.MemoryTree.Swap()
+	database.Swap()
+}
 
-	// 将内存表存储到 SsTable 中
-	database.TableTree.CreateNewTable(tmpTree.GetValues())
-	database.Wal.Reset()
+// CompressMemory 会监听iMemTable，当iMemTable有数据的时候就进行压缩
+func CompressMemory() {
+	con := config.GetConfig()
+	ticker := time.Tick(time.Duration(con.CompressInterval) * time.Millisecond)
+	for range ticker {
+		//fmt.Println(database.iMemTable.Getlen())
+		for database.iMemTable.Getlen() != 0 {
+			log.Println("Compressing iMemTable")
+			preTable := database.iMemTable.PopTable()
+			database.TableTree.CreatNewTable(preTable.OrderTable.GetValues())
+			preTable.Wal.DeleteFile()
+		}
+	}
 }

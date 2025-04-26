@@ -1,45 +1,67 @@
 package ssTable
 
 import (
+	"LSM/kv"
+	"log"
 	"os"
 	"sync"
 )
 
-// SSTable 表，存储在磁盘文件中
 type SSTable struct {
-	// 文件句柄，要注意，操作系统的文件句柄是有限的
 	f        *os.File
 	filePath string
-	// 元数据
+	//元数据
 	tableMetaInfo MetaInfo
-	// 文件的稀疏索引列表
+	//文件稀疏索引
 	sparseIndex map[string]Position
-	// 排序后的 key 列表
+	//排序后的key列表
 	sortIndex []string
-	// SSTable 只能使排他锁
-	lock sync.Locker
-	/*
-		sortIndex 是有序的，便于 CPU 缓存等，还可以使用布隆过滤器，有助于快速查找。
-		sortIndex 找到后，使用 sparseIndex 快速定位
-	*/
+	lock      sync.Locker
 }
 
-// TableTree 树
-type TableTree struct {
-	levels []*tableNode
-	// 用于避免进行插入或压缩、删除 SSTable 时发生冲突
-	lock *sync.RWMutex
-}
-
-// 链表，表示每一层的 SSTable
-type tableNode struct {
-	index int
-	table *SSTable
-	next  *tableNode
-}
-
-func (table *SSTable) Init(path string) {
-	table.filePath = path
+func (table *SSTable) Init(filePath string) {
+	table.filePath = filePath
 	table.lock = &sync.Mutex{}
 	table.loadFileHandle()
+}
+func (table *SSTable) Search(key string) (value kv.Value, result kv.SearchResult) {
+	table.lock.Lock()
+	defer table.lock.Unlock()
+	var position = Position{
+		Start: -1,
+	}
+	l := 0
+	r := len(table.sortIndex) - 1
+	for l <= r {
+		mid := (l + r) / 2
+		if table.sortIndex[mid] == key {
+			position = table.sparseIndex[key]
+			if position.Deleted {
+				return kv.Value{}, kv.Delete
+			}
+			break
+		} else if table.sortIndex[mid] < key {
+			l = mid + 1
+		} else {
+			r = mid - 1
+		}
+	}
+	if position.Start == -1 {
+		return kv.Value{}, kv.NotFind
+	}
+	bytes := make([]byte, position.Len)
+	if _, err := table.f.Seek(position.Start, 0); err != nil {
+		log.Println(err)
+		return kv.Value{}, kv.NotFind
+	}
+	if _, err := table.f.Read(bytes); err != nil {
+		log.Println(err)
+		return kv.Value{}, kv.NotFind
+	}
+	value, err := kv.Decode(bytes)
+	if err != nil {
+		log.Println(err)
+		return kv.Value{}, kv.NotFind
+	}
+	return value, kv.Success
 }
